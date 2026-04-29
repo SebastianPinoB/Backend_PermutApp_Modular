@@ -1,6 +1,7 @@
 package com.example.PermutApp.model.dto;
 
 public record UsuarioDto(
+   //Los datos en el mismo orden que los arroja la api
    Boolean usu_activo,
    char usu_dvrun,
    String usu_email,

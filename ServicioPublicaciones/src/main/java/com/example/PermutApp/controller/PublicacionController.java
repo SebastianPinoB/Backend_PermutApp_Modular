@@ -29,39 +29,34 @@ public class PublicacionController {
    public Publicacion crearPublicacion(@RequestBody CrearPublicacion nueva) {
       return publicacionService.crearPublicacion(nueva);
    }
-   
+
    @GetMapping("")
    public List<Publicacion> obtenerTodasPublicaciones() {
       return publicacionService.obtenerTodos();
    }
-/* 
-   
 
    @GetMapping("/{idPublicacion}")
    public Publicacion buscarPorIdPublicacion(@PathVariable Integer idPublicacion) {
       return publicacionService.obtenerPorId(idPublicacion);
    }
 
-   @PostMapping("")
-   public Publicacion crearPublicacion(@RequestBody CrearPublicacion nueva) {
-      return publicacionService.crearPublicacion(nueva);
-   }
-   
    @PutMapping("/{idPublicacion}")
-   public Publicacion modificarPublicacion(@PathVariable Integer idPublicacion, @RequestBody ActualizarPublicacion nueva) {
+   public Publicacion modificarPublicacion(@PathVariable Integer idPublicacion,
+         @RequestBody ActualizarPublicacion nueva) {
       return publicacionService.actualizarPublicacion(idPublicacion, nueva);
    }
 
+   @DeleteMapping("/{idPublicacion}")
+   public String eliminarPublicacion(@PathVariable Integer idPublicacion){
+      return publicacionService.eliminarPublicacion(idPublicacion);
+   }
 
+   
+/* 
    //Esto deberia ir dentro de la modificacion de la publicacion
    /*@PutMapping("/{idPublicacion}")
    public Publicacion cambiarEstadoPublicacion(@PathVariable Integer idPublicacion) {
       return publicacionService.cambiarEstadoPublicacion(idPublicacion);
-   }
-   
-   @DeleteMapping("/{idPublicacion}")
-   public String eliminarPublicacion(@PathVariable Integer idPublicacion){
-      return publicacionService.eliminarPublicacion(idPublicacion);
    }
 */
 }

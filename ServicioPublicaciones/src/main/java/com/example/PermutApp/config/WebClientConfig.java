@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
    @Bean
    public WebClient usuarioWebClient(){
-      return WebClient.builder().baseUrl("http://127.0.0.1:5000").build();
+      return WebClient.builder().baseUrl("http://127.0.0.1:5000").build(); //Puerto del server donde esta el otro MS
    }
 
 }

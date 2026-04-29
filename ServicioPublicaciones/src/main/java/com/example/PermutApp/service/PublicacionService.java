@@ -28,7 +28,7 @@ public class PublicacionService {
       UsuarioDto usuario = null;
 
       try {
-         usuario = usuarioWebClient.get()
+         usuario = usuarioWebClient.get() //Hace referencia al metodo Get
          .uri("/usuario/{idUsuario}", nueva.getUsu_id())
          .retrieve()
          .bodyToMono(UsuarioDto.class)
@@ -54,31 +54,20 @@ public class PublicacionService {
    public List<Publicacion> obtenerTodos(){
       return publicacionRepository.findAll();
    }
-/*
-   
-   public Publicacion obtenerPorId(int idPublicacion){
+
+   public Publicacion obtenerPorId(int idPublicacion) {
       Publicacion publicacion = publicacionRepository.findById(idPublicacion).orElse(null);
-      if(publicacion == null){
+      if (publicacion == null) {
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicacion no encontrado");
       }
       return publicacion;
    }
 
-   public Publicacion crearPublicacion(CrearPublicacion nueva){
-      //Falta asignarle un creador
-      Publicacion publicacion = new Publicacion();
-      publicacion.setPubl_titulo(nueva.getPubl_titulo());
-      publicacion.setPubl_descripcion(nueva.getPubl_descripcion());
-      publicacion.setPubl_fech_creacion(new Date());
-      publicacion.setPubl_activo(true);
-      return publicacionRepository.save(publicacion);
-   }
-
-   public Publicacion actualizarPublicacion(Integer idPublicacion, ActualizarPublicacion nueva){
+   public Publicacion actualizarPublicacion(Integer idPublicacion, ActualizarPublicacion nueva) {
       Publicacion publicacion = publicacionRepository.findById(idPublicacion).orElse(null);
-      if(publicacion == null){
+      if (publicacion == null) {
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicacion no encontrada");
-      }else{
+      } else {
          publicacion.setPubl_titulo(nueva.getPubl_titulo());
          publicacion.setPubl_descripcion(nueva.getPubl_descripcion());
 
@@ -86,16 +75,17 @@ public class PublicacionService {
       }
    }
 
-   public String eliminarPublicacion(int idPublicacion){
-      if(publicacionRepository.existsById(idPublicacion)){
+   public String eliminarPublicacion(int idPublicacion) {
+      if (publicacionRepository.existsById(idPublicacion)) {
          publicacionRepository.deleteById(idPublicacion);
          return "Publicacion eliminada correctamente";
-      }else{
+      } else {
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicacion no encontrada");
       }
 
    }
 
+/*
    public Publicacion cambiarEstadoPublicacion(int idPublicacion){
       Publicacion publicacion = publicacionRepository.findById(idPublicacion).orElse(null);
       if(publicacion == null){
