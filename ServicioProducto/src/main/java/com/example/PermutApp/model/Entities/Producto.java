@@ -12,7 +12,7 @@ import lombok.Data;
 @Data
 @Table(name = "producto")
 public class Producto {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int prod_id;
@@ -22,8 +22,7 @@ public class Producto {
     private String prod_est;
     @Column(nullable = false)
     private int prod_precio;
-
-    //modificar aqui para el dto
-    //private int publ_id;
+    @Column(nullable = false)
+    private int publ_id;
 
 }
