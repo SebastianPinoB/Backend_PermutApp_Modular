@@ -1,35 +1,63 @@
 package com.example.PermutApp.service;
 
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.PermutApp.model.Entities.Usuario;
+import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.request.ActualizarUsuario;
 import com.example.PermutApp.model.request.CrearUsuario;
 import com.example.PermutApp.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
-   
-   @Autowired
-   private UsuarioRepository usuarioRepository;
 
-   public List<Usuario> obtenerTodos(){
-      return usuarioRepository.findAll();
+   private final UsuarioRepository usuarioRepository;
+   private final PasswordEncoder passwordEncoder;
+
+   public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+      this.usuarioRepository = usuarioRepository;
+      this.passwordEncoder = passwordEncoder;
    }
-   
-   public Usuario obtenerPorId(int idUsuario){
+
+   public UsuarioDto convertirADto(Usuario usuario) {
+      return new UsuarioDto(
+            usuario.getUsu_id(),
+            usuario.getUsu_numrun(),
+            usuario.getUsu_dvrun(),
+            usuario.getUsu_pri_nombre(),
+            usuario.getUsu_seg_nombre(),
+            usuario.getUsu_pri_apellido(),
+            usuario.getUsu_seg_apellido(),
+            usuario.getUsu_email(),
+            usuario.getUsu_prom_rep(),
+            usuario.isUsu_activo());
+   }
+
+   public List<UsuarioDto> obtenerTodos(){
+      return usuarioRepository.findAll()
+            .stream()
+            .map(this::convertirADto)
+            .toList();
+   }
+
+   public UsuarioDto obtenerPorId(int idUsuario){
       Usuario usuario = usuarioRepository.findById(idUsuario).orElse(null);
       if(usuario == null){
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
       } 
-      return usuario;
+      return convertirADto(usuario);
    }
 
-   public Usuario crearUsuario(CrearUsuario nuevo){
+   public UsuarioDto crearUsuario(CrearUsuario nuevo){
+      if (usuarioRepository.existsByUsuEmailIgnoreCase(nuevo.getUsu_email())) {
+         throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya esta registrado");
+      }
+
       Usuario nuevoUsuario = new Usuario();
       nuevoUsuario.setUsu_numrun(nuevo.getUsu_numrun());
       nuevoUsuario.setUsu_dvrun(nuevo.getUsu_dvrun());
@@ -38,11 +66,11 @@ public class UsuarioService {
       nuevoUsuario.setUsu_pri_apellido(nuevo.getUsu_pri_apellido());
       nuevoUsuario.setUsu_seg_apellido(nuevo.getUsu_seg_apellido());
       nuevoUsuario.setUsu_email(nuevo.getUsu_email());
-      nuevoUsuario.setUsu_pass(nuevo.getUsu_pass());
-      nuevoUsuario.setUsu_prom_rep(nuevo.getUsu_prom_rep());
-      nuevoUsuario.setUsu_activo(true);
+      nuevoUsuario.setUsu_pass(passwordEncoder.encode(nuevo.getUsu_pass()));
+      nuevoUsuario.setUsu_prom_rep(nuevo.getUsu_prom_rep() != null ? nuevo.getUsu_prom_rep() : 0);
+      nuevoUsuario.setUsu_activo(nuevo.getUsu_activo() == null || nuevo.getUsu_activo());
 
-      return usuarioRepository.save(nuevoUsuario);
+      return convertirADto(usuarioRepository.save(nuevoUsuario));
    }
 
    public String eliminarUsuario(int idUsuario){
@@ -54,7 +82,7 @@ public class UsuarioService {
       }
    }
 
-   public Usuario actualizarUsuario(Integer idUsuario, ActualizarUsuario nuevo){
+   public UsuarioDto actualizarUsuario(Integer idUsuario, ActualizarUsuario nuevo){
       Usuario usuario = usuarioRepository.findById(idUsuario).orElse(null);
       if(usuario == null){
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario con ID " + idUsuario + " no encontrado");
@@ -67,9 +95,16 @@ public class UsuarioService {
          usuario.setUsu_pri_apellido(nuevo.getUsu_pri_apellido());
          usuario.setUsu_seg_apellido(nuevo.getUsu_seg_apellido());
          usuario.setUsu_email(nuevo.getUsu_email());
-         usuario.setUsu_pass(nuevo.getUsu_pass());
-         usuario.setUsu_prom_rep(nuevo.getUsu_prom_rep());
-         return usuarioRepository.save(usuario);
+         if (StringUtils.hasText(nuevo.getUsu_pass())) {
+            usuario.setUsu_pass(passwordEncoder.encode(nuevo.getUsu_pass()));
+         }
+         if (nuevo.getUsu_prom_rep() != null) {
+            usuario.setUsu_prom_rep(nuevo.getUsu_prom_rep());
+         }
+         if (nuevo.getUsu_activo() != null) {
+            usuario.setUsu_activo(nuevo.getUsu_activo());
+         }
+         return convertirADto(usuarioRepository.save(usuario));
       }
    }
 

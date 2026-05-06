@@ -6,10 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.PermutApp.model.Entities.Usuario;
+import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.request.ActualizarUsuario;
 import com.example.PermutApp.model.request.CrearUsuario;
 import com.example.PermutApp.service.UsuarioService;
+
+import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,22 +27,22 @@ public class UsuarioController {
    private UsuarioService usuarioService;
 
    @GetMapping("")
-   public List<Usuario> obtenerTodosUsuarios() {
+   public List<UsuarioDto> obtenerTodosUsuarios() {
        return usuarioService.obtenerTodos();
    }
 
    @GetMapping("/{idUsuario}")
-   public Usuario buscarPorIdUsuario(@PathVariable Integer idUsuario) {
+   public UsuarioDto buscarPorIdUsuario(@PathVariable Integer idUsuario) {
       return usuarioService.obtenerPorId(idUsuario);
    }
    
    @PostMapping("")
-   public Usuario agregarUsuario(@RequestBody CrearUsuario usuario) {
+   public UsuarioDto agregarUsuario(@Valid @RequestBody CrearUsuario usuario) {
       return usuarioService.crearUsuario(usuario);
    }
 
    @PutMapping("/{id}")
-   public Usuario actualizUsuario(@PathVariable Integer id ,@RequestBody ActualizarUsuario nuevo) {
+   public UsuarioDto actualizUsuario(@PathVariable Integer id, @Valid @RequestBody ActualizarUsuario nuevo) {
       return usuarioService.actualizarUsuario(id, nuevo);
    }
    
