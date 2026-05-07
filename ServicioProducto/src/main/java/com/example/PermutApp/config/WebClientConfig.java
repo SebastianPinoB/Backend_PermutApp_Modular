@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
     @Bean
-    public WebClient publicacionWebClient(@Value("${services.publicacion.base-url:http://127.0.0.1:6000}") String publicacionBaseUrl){
+    public WebClient publicacionWebClient(@Value("${services.publicacion.base-url:http://127.0.0.1:6001}") String publicacionBaseUrl){
         return WebClient.builder().baseUrl(publicacionBaseUrl).build();
     }
 
