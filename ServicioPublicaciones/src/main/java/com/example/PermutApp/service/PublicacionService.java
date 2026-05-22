@@ -24,15 +24,19 @@ public class PublicacionService {
    @Autowired
    public PublicacionRepository publicacionRepository;
 
-   public Publicacion crearPublicacion(CrearPublicacion nueva){
+   public Publicacion crearPublicacion(CrearPublicacion nueva, String authorization){
       UsuarioDto usuario = null;
 
       try {
-         usuario = usuarioWebClient.get() //Hace referencia al metodo Get
-         .uri("/usuario/{idUsuario}", nueva.getUsu_id())
-         .retrieve()
-         .bodyToMono(UsuarioDto.class)
-         .block();
+         // Reenvia el JWT al ServicioUsuarios para confirmar que el autor existe.
+         var request = usuarioWebClient.get()
+               .uri("/usuario/{idUsuario}", nueva.getUsu_id());
+         if (authorization != null && !authorization.isBlank()) {
+            request = request.header("Authorization", authorization);
+         }
+         usuario = request.retrieve()
+               .bodyToMono(UsuarioDto.class)
+               .block();
       } catch (Exception e) {
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ENDPOINT ---> Usuario no encontrado");
       }

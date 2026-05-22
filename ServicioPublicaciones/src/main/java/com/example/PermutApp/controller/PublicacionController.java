@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PutMapping;
 
 
@@ -26,8 +27,10 @@ public class PublicacionController {
    private PublicacionService publicacionService;
 
    @PostMapping("")
-   public Publicacion crearPublicacion(@RequestBody CrearPublicacion nueva) {
-      return publicacionService.crearPublicacion(nueva);
+   public Publicacion crearPublicacion(
+         @RequestBody CrearPublicacion nueva,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      return publicacionService.crearPublicacion(nueva, authorization);
    }
 
    @GetMapping("")
