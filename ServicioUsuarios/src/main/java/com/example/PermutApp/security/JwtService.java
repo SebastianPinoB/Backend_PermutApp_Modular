@@ -13,11 +13,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.PermutApp.model.Entities.Usuario;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class JwtService {
 
    private static final String HMAC_ALGORITHM = "HmacSHA256";
+   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
    private final String jwtSecret;
    private final long expirationMs;
@@ -52,8 +55,11 @@ public class JwtService {
    }
 
    public String obtenerEmail(String token) {
-      String payload = decodificarPayload(token);
-      return extraerString(payload, "sub");
+      Object subject = decodificarPayloadComoMap(token).get("sub");
+      if (!(subject instanceof String email) || email.isBlank()) {
+         throw new IllegalArgumentException("Claim sub no encontrado");
+      }
+      return email;
    }
 
    public boolean esTokenValido(String token) {
@@ -67,7 +73,7 @@ public class JwtService {
          return false;
       }
 
-      long exp = extraerLong(decodificarPayload(token), "exp");
+      long exp = obtenerLongClaim(decodificarPayloadComoMap(token), "exp");
       return exp > Instant.now().getEpochSecond();
    }
 
@@ -81,6 +87,25 @@ public class JwtService {
          throw new IllegalArgumentException("JWT invalido");
       }
       return new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+   }
+
+   private Map<String, Object> decodificarPayloadComoMap(String token) {
+      try {
+         return OBJECT_MAPPER.readValue(decodificarPayload(token), new TypeReference<>() { });
+      } catch (Exception e) {
+         throw new IllegalArgumentException("JWT payload invalido", e);
+      }
+   }
+
+   private long obtenerLongClaim(Map<String, Object> claims, String key) {
+      Object value = claims.get(key);
+      if (value instanceof Number number) {
+         return number.longValue();
+      }
+      if (value instanceof String text) {
+         return Long.parseLong(text);
+      }
+      throw new IllegalArgumentException("Claim no encontrado: " + key);
    }
 
    private String firmar(String data) {
@@ -114,31 +139,6 @@ public class JwtService {
          }
       }
       return builder.append("}").toString();
-   }
-
-   private String extraerString(String json, String key) {
-      String pattern = "\"" + key + "\":\"";
-      int start = json.indexOf(pattern);
-      if (start < 0) {
-         throw new IllegalArgumentException("Claim no encontrado: " + key);
-      }
-      start += pattern.length();
-      int end = json.indexOf("\"", start);
-      return json.substring(start, end);
-   }
-
-   private long extraerLong(String json, String key) {
-      String pattern = "\"" + key + "\":";
-      int start = json.indexOf(pattern);
-      if (start < 0) {
-         throw new IllegalArgumentException("Claim no encontrado: " + key);
-      }
-      start += pattern.length();
-      int end = start;
-      while (end < json.length() && Character.isDigit(json.charAt(end))) {
-         end++;
-      }
-      return Long.parseLong(json.substring(start, end));
    }
 
    private boolean constantTimeEquals(String left, String right) {
