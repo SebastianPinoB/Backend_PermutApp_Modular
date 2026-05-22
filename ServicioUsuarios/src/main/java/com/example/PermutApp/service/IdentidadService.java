@@ -3,6 +3,8 @@ package com.example.PermutApp.service;
 import java.io.IOException;
 import java.text.Normalizer;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -42,20 +44,22 @@ public class IdentidadService {
    private final RekognitionClient rekognitionClient;
    private final TextractClient textractClient;
    private final double faceThreshold;
+   private final List<String> reviewerEmails;
 
    public IdentidadService(
          UsuarioRepository usuarioRepository,
          VerificacionIdentidadRepository verificacionRepository,
          RekognitionClient rekognitionClient,
          TextractClient textractClient,
-         @Value("${identity.face-threshold:85}") double faceThreshold) {
+         @Value("${identity.face-threshold:85}") double faceThreshold,
+         @Value("${identity.reviewer-emails:}") String reviewerEmails) {
       this.usuarioRepository = usuarioRepository;
       this.verificacionRepository = verificacionRepository;
       this.rekognitionClient = rekognitionClient;
       this.textractClient = textractClient;
       this.faceThreshold = faceThreshold;
+      this.reviewerEmails = parseReviewerEmails(reviewerEmails);
    }
-
 
    public void validarUsuarioAutenticado(int usuarioId, String emailAutenticado) {
       Usuario usuario = usuarioRepository.findById(usuarioId)
@@ -73,11 +77,12 @@ public class IdentidadService {
       byte[] selfieBytes = leerImagen(selfie, "selfie");
 
       double similarity = compararRostros(carnetBytes, selfieBytes);
-      OcrResultado ocr = extraerDatosCarnet(carnetBytes);
+      OcrResultado ocr = extraerDatosCarnet(carnetBytes, usuario);
       boolean faceMatch = similarity >= faceThreshold;
       boolean runMatch = ocr.runDetectado()
             .map(run -> normalizarRun(run).equals(normalizarRun(usuario.getUsu_numrun() + "-" + usuario.getUsu_dvrun())))
             .orElse(false);
+      boolean nombreMatch = ocr.nombreMatch();
 
       EstadoVerificacion estado;
       String observacion;
@@ -87,12 +92,15 @@ public class IdentidadService {
       } else if (ocr.runDetectado().isEmpty()) {
          estado = EstadoVerificacion.REVISION_MANUAL;
          observacion = "El rostro coincide, pero el OCR no pudo extraer el RUN del documento.";
-      } else if (runMatch) {
-         estado = EstadoVerificacion.APROBADA;
-         observacion = "Rostro y RUN coinciden.";
-      } else {
+      } else if (!runMatch) {
          estado = EstadoVerificacion.RECHAZADA;
          observacion = "El rostro coincide, pero el RUN detectado no coincide con el usuario registrado.";
+      } else if (!nombreMatch) {
+         estado = EstadoVerificacion.REVISION_MANUAL;
+         observacion = "Rostro y RUN coinciden, pero el OCR no confirmo nombre y apellido.";
+      } else {
+         estado = EstadoVerificacion.APROBADA;
+         observacion = "Rostro, RUN y nombre coinciden.";
       }
 
       VerificacionIdentidad verificacion = new VerificacionIdentidad();
@@ -104,6 +112,7 @@ public class IdentidadService {
       verificacion.setVer_ocr_run_detectado(ocr.runDetectado().orElse(null));
       verificacion.setVer_ocr_nombre_detectado(ocr.nombreDetectado().orElse(null));
       verificacion.setVer_run_match(runMatch);
+      verificacion.setVer_nombre_match(nombreMatch);
       verificacion.setVer_ocr_provider("AMAZON_TEXTRACT");
       verificacion.setVer_fecha(Instant.now());
       verificacion.setVer_observacion(observacion);
@@ -118,6 +127,37 @@ public class IdentidadService {
       return verificacionRepository.findUltimaByUsuario(usuarioId)
             .map(this::convertirADto)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "El usuario no tiene verificaciones"));
+   }
+
+   public List<VerificacionIdentidadDto> listarRevisionManual(String emailRevisor) {
+      validarRevisor(emailRevisor);
+      return verificacionRepository.findRevisionManual(EstadoVerificacion.REVISION_MANUAL.name())
+            .stream()
+            .map(this::convertirADto)
+            .toList();
+   }
+
+   public VerificacionIdentidadDto resolverRevisionManual(
+         int verificacionId,
+         EstadoVerificacion estado,
+         String observacion,
+         String emailRevisor) {
+      validarRevisor(emailRevisor);
+      if (estado != EstadoVerificacion.APROBADA && estado != EstadoVerificacion.RECHAZADA) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La revision manual solo puede aprobar o rechazar");
+      }
+
+      VerificacionIdentidad verificacion = verificacionRepository.findById(verificacionId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Verificacion no encontrada"));
+      if (verificacion.getVer_estado() != EstadoVerificacion.REVISION_MANUAL) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La verificacion no esta pendiente de revision manual");
+      }
+
+      verificacion.setVer_estado(estado);
+      verificacion.setVer_revisor_email(emailRevisor.toLowerCase(Locale.ROOT));
+      verificacion.setVer_fecha_revision(Instant.now());
+      verificacion.setVer_observacion(limpiarObservacionRevision(observacion, estado));
+      return convertirADto(verificacionRepository.save(verificacion));
    }
 
    public boolean usuarioEstaVerificado(int usuarioId) {
@@ -137,9 +177,12 @@ public class IdentidadService {
             verificacion.getVer_ocr_run_detectado(),
             verificacion.getVer_ocr_nombre_detectado(),
             verificacion.getVer_run_match(),
+            verificacion.getVer_nombre_match(),
             verificacion.getVer_ocr_provider(),
             verificacion.getVer_fecha(),
-            verificacion.getVer_observacion());
+            verificacion.getVer_observacion(),
+            verificacion.getVer_revisor_email(),
+            verificacion.getVer_fecha_revision());
    }
 
    private byte[] leerImagen(MultipartFile archivo, String nombreCampo) {
@@ -173,7 +216,7 @@ public class IdentidadService {
             .orElse(0.0);
    }
 
-   private OcrResultado extraerDatosCarnet(byte[] carnetBytes) {
+   private OcrResultado extraerDatosCarnet(byte[] carnetBytes, Usuario usuario) {
       String texto = textractClient.detectDocumentText(DetectDocumentTextRequest.builder()
             .document(Document.builder().bytes(SdkBytes.fromByteArray(carnetBytes)).build())
             .build())
@@ -188,21 +231,54 @@ public class IdentidadService {
             ? Optional.of(matcher.group(1).replace(".", "") + "-" + matcher.group(2).toUpperCase(Locale.ROOT))
             : Optional.empty();
 
-      return new OcrResultado(run, detectarNombre(texto));
+      String textoNormalizado = normalizarTexto(texto);
+      List<String> coincidenciasNombre = obtenerTokensUsuario(usuario).stream()
+            .filter(token -> contieneToken(textoNormalizado, token))
+            .toList();
+      boolean nombreMatch = nombrePrincipalCoincide(textoNormalizado, usuario);
+      Optional<String> nombreDetectado = coincidenciasNombre.isEmpty()
+            ? Optional.empty()
+            : Optional.of(String.join(" ", coincidenciasNombre));
+
+      return new OcrResultado(run, nombreDetectado, nombreMatch);
    }
 
-   private Optional<String> detectarNombre(String texto) {
-      String[] lineas = texto.split("\\R");
-      for (String linea : lineas) {
-         String limpia = linea.trim();
-         String normalizada = Normalizer.normalize(limpia, Normalizer.Form.NFD)
-               .replaceAll("\\p{M}", "")
-               .toUpperCase(Locale.ROOT);
-         if (normalizada.contains("NOMBRE") || normalizada.contains("APELLIDO")) {
-            return Optional.of(limpia);
-         }
+   private boolean nombrePrincipalCoincide(String textoNormalizado, Usuario usuario) {
+      String primerNombre = primerToken(usuario.getUsu_pri_nombre());
+      String primerApellido = primerToken(usuario.getUsu_pri_apellido());
+      if (primerNombre.isBlank() || primerApellido.isBlank()) {
+         return false;
       }
-      return Optional.empty();
+      return contieneToken(textoNormalizado, primerNombre) && contieneToken(textoNormalizado, primerApellido);
+   }
+
+   private List<String> obtenerTokensUsuario(Usuario usuario) {
+      List<String> tokens = new ArrayList<>();
+      agregarToken(tokens, usuario.getUsu_pri_nombre());
+      agregarToken(tokens, usuario.getUsu_seg_nombre());
+      agregarToken(tokens, usuario.getUsu_pri_apellido());
+      agregarToken(tokens, usuario.getUsu_seg_apellido());
+      return tokens;
+   }
+
+   private void agregarToken(List<String> tokens, String valor) {
+      String token = primerToken(valor);
+      if (!token.isBlank() && !tokens.contains(token)) {
+         tokens.add(token);
+      }
+   }
+
+   private String primerToken(String valor) {
+      if (valor == null) {
+         return "";
+      }
+      String normalizado = normalizarTexto(valor).trim();
+      int espacio = normalizado.indexOf(' ');
+      return espacio >= 0 ? normalizado.substring(0, espacio) : normalizado;
+   }
+
+   private boolean contieneToken(String textoNormalizado, String token) {
+      return Pattern.compile("(^|\\s)" + Pattern.quote(token) + "($|\\s)").matcher(textoNormalizado).find();
    }
 
    private String normalizarRun(String run) {
@@ -211,6 +287,45 @@ public class IdentidadService {
             .toUpperCase(Locale.ROOT);
    }
 
-   private record OcrResultado(Optional<String> runDetectado, Optional<String> nombreDetectado) {
+   private String normalizarTexto(String texto) {
+      return Normalizer.normalize(texto == null ? "" : texto, Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "")
+            .replaceAll("[^A-Za-z0-9Kk]+", " ")
+            .toUpperCase(Locale.ROOT)
+            .replaceAll("\\s+", " ")
+            .trim();
+   }
+
+   private List<String> parseReviewerEmails(String rawEmails) {
+      if (rawEmails == null || rawEmails.isBlank()) {
+         return List.of();
+      }
+      List<String> emails = new ArrayList<>();
+      for (String email : rawEmails.split(",")) {
+         String limpio = email.trim().toLowerCase(Locale.ROOT);
+         if (!limpio.isBlank()) {
+            emails.add(limpio);
+         }
+      }
+      return emails;
+   }
+
+   private void validarRevisor(String emailRevisor) {
+      String email = emailRevisor == null ? "" : emailRevisor.toLowerCase(Locale.ROOT);
+      if (reviewerEmails.isEmpty() || !reviewerEmails.contains(email)) {
+         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para revisar verificaciones manuales");
+      }
+   }
+
+   private String limpiarObservacionRevision(String observacion, EstadoVerificacion estado) {
+      if (observacion == null || observacion.isBlank()) {
+         return estado == EstadoVerificacion.APROBADA
+               ? "Revision manual aprobada."
+               : "Revision manual rechazada.";
+      }
+      return observacion.trim();
+   }
+
+   private record OcrResultado(Optional<String> runDetectado, Optional<String> nombreDetectado, boolean nombreMatch) {
    }
 }

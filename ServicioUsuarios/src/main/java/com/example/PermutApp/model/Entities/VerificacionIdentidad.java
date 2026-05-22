@@ -53,6 +53,9 @@ public class VerificacionIdentidad {
    @Column(nullable = false)
    private Boolean ver_run_match;
 
+   @Column(nullable = true)
+   private Boolean ver_nombre_match;
+
    @Column(nullable = false)
    private String ver_ocr_provider;
 
@@ -61,4 +64,10 @@ public class VerificacionIdentidad {
 
    @Column(nullable = true, length = 500)
    private String ver_observacion;
+
+   @Column(nullable = true)
+   private String ver_revisor_email;
+
+   @Column(nullable = true)
+   private Instant ver_fecha_revision;
 }

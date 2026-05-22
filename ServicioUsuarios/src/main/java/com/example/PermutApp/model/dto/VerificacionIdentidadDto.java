@@ -14,7 +14,10 @@ public record VerificacionIdentidadDto(
       String ver_ocr_run_detectado,
       String ver_ocr_nombre_detectado,
       Boolean ver_run_match,
+      Boolean ver_nombre_match,
       String ver_ocr_provider,
       Instant ver_fecha,
-      String ver_observacion) {
+      String ver_observacion,
+      String ver_revisor_email,
+      Instant ver_fecha_revision) {
 }
