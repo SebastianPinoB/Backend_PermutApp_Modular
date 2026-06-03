@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("producto")
 public class ProductoController {
@@ -26,7 +28,7 @@ public class ProductoController {
     ProductoService productoService;
 
     @PostMapping("")
-    public ProductoDto crearProducto(@RequestBody CrearProducto nuevo) {
+    public ProductoDto crearProducto(@Valid @RequestBody CrearProducto nuevo) {
         return productoService.crearProducto(nuevo);
     }
 
