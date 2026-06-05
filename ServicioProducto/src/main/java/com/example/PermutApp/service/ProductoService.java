@@ -44,7 +44,11 @@ public class ProductoService {
             producto.getProd_est(),
             producto.getProd_precio(),
             producto.getPubl_id(),
-            imagenes
+            imagenes,
+            producto.getProd_ubicacion_comuna(),
+            producto.getProd_ubicacion_referencia(),
+            producto.getProd_latitud_aprox(),
+            producto.getProd_longitud_aprox()
         );
     }
 
@@ -76,6 +80,10 @@ public class ProductoService {
         producto.setProd_est(nuevo.getProd_est());
         producto.setProd_precio(nuevo.getProd_precio());
         producto.setPubl_id(nuevo.getPubl_id());
+        producto.setProd_ubicacion_comuna(limpiarTexto(nuevo.getProd_ubicacion_comuna()));
+        producto.setProd_ubicacion_referencia(limpiarTexto(nuevo.getProd_ubicacion_referencia()));
+        producto.setProd_latitud_aprox(nuevo.getProd_latitud_aprox());
+        producto.setProd_longitud_aprox(nuevo.getProd_longitud_aprox());
 
         Producto guardado = productoRepository.save(producto);
         guardarImagenes(guardado.getProd_id(), imagenes);
@@ -105,6 +113,10 @@ public class ProductoService {
             producto.setProd_nombre(nuevo.getProd_nombre());
             producto.setProd_est(nuevo.getProd_est());
             producto.setProd_precio(nuevo.getProd_precio());
+            producto.setProd_ubicacion_comuna(limpiarTexto(nuevo.getProd_ubicacion_comuna()));
+            producto.setProd_ubicacion_referencia(limpiarTexto(nuevo.getProd_ubicacion_referencia()));
+            producto.setProd_latitud_aprox(nuevo.getProd_latitud_aprox());
+            producto.setProd_longitud_aprox(nuevo.getProd_longitud_aprox());
 
             return convertirADto(productoRepository.save(producto));
         }
@@ -136,6 +148,13 @@ public class ProductoService {
         }
 
         return limpias;
+    }
+
+    private String limpiarTexto(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        return valor.trim();
     }
 
     private void guardarImagenes(int productoId, List<String> imagenes) {

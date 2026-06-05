@@ -3,8 +3,11 @@ package com.example.PermutApp.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.request.ActualizarUsuario;
@@ -47,7 +50,11 @@ public class UsuarioController {
    }
    
    @DeleteMapping("/{id}")
-   public String eliminarUsuario(@PathVariable Integer id){
+   public String eliminarUsuario(@PathVariable Integer id, Authentication authentication){
+      UsuarioDto usuario = usuarioService.obtenerPorId(id);
+      if (authentication == null || !usuario.usu_email().equalsIgnoreCase(authentication.getName())) {
+         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes eliminar tu propia cuenta");
+      }
       return usuarioService.eliminarUsuario(id);
    }
 

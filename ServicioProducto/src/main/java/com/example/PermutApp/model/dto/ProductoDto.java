@@ -8,7 +8,11 @@ public record ProductoDto(
     String prod_est,
     int prod_precio,
     int publ_id,
-    List<String> prod_imagenes
+    List<String> prod_imagenes,
+    String prod_ubicacion_comuna,
+    String prod_ubicacion_referencia,
+    Double prod_latitud_aprox,
+    Double prod_longitud_aprox
 ){
 
 }

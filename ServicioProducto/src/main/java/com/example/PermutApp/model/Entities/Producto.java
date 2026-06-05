@@ -24,5 +24,9 @@ public class Producto {
     private int prod_precio;
     @Column(nullable = false)
     private int publ_id;
+    private String prod_ubicacion_comuna;
+    private String prod_ubicacion_referencia;
+    private Double prod_latitud_aprox;
+    private Double prod_longitud_aprox;
 
 }

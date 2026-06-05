@@ -22,4 +22,8 @@ public class CrearProducto {
     private Integer publ_id;
     @Size(max = 5)
     private List<String> prod_imagenes;
+    private String prod_ubicacion_comuna;
+    private String prod_ubicacion_referencia;
+    private Double prod_latitud_aprox;
+    private Double prod_longitud_aprox;
 }

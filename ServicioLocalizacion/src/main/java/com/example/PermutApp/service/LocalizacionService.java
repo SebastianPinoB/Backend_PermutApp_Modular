@@ -17,6 +17,7 @@ import com.example.PermutApp.model.Region;
 import com.example.PermutApp.model.Request.DireccionRequest;
 import com.example.PermutApp.model.Request.PuntoEncuentroRequest;
 import com.example.PermutApp.model.Request.RegionRequest;
+import com.example.PermutApp.model.Request.SugerenciaPuntoMedioRequest;
 import com.example.PermutApp.model.Response.CiudadResponse;
 import com.example.PermutApp.model.Response.ComunaResponse;
 import com.example.PermutApp.model.Response.DireccionResponse;
@@ -25,6 +26,7 @@ import com.example.PermutApp.model.Response.PaisConRegionResponse;
 import com.example.PermutApp.model.Response.PaisResponse;
 import com.example.PermutApp.model.Response.PuntoEncuentroResponse;
 import com.example.PermutApp.model.Response.RegionResponse;
+import com.example.PermutApp.model.Response.SugerenciaPuntoMedioResponse;
 import com.example.PermutApp.repository.CiudadRepository;
 import com.example.PermutApp.repository.ComunaRepository;
 import com.example.PermutApp.repository.DireccionRepository;
@@ -206,6 +208,10 @@ public class LocalizacionService {
       metro.setLinea(request.getLinea());
       metro.setOrden(request.getOrden());
       metro.setEsCombinacion(request.getEsCombinacion());
+      metro.setLatitud(request.getLatitud());
+      metro.setLongitud(request.getLongitud());
+      metro.setDireccion(request.getDireccion());
+      metro.setComuna(request.getComuna());
 
       EstacionMetro guardado = estacionMetroRepository.save(metro);
       return mapearAEstacionMetroResponse(guardado);
@@ -269,6 +275,30 @@ public class LocalizacionService {
       return estacionMetroRepository.findByLinea(linea).stream()
             .map(this::mapearAEstacionMetroResponse)
             .collect(Collectors.toList());
+   }
+
+   public SugerenciaPuntoMedioResponse sugerirMetroPuntoMedio(SugerenciaPuntoMedioRequest request) {
+      double puntoMedioLatitud = (request.getLatitudOrigen() + request.getLatitudDestino()) / 2;
+      double puntoMedioLongitud = (request.getLongitudOrigen() + request.getLongitudDestino()) / 2;
+
+      EstacionMetro estacion = estacionMetroRepository.findByLatitudIsNotNullAndLongitudIsNotNull().stream()
+            .min((actual, candidata) -> Double.compare(
+                  calcularDistanciaKm(puntoMedioLatitud, puntoMedioLongitud, actual.getLatitud(), actual.getLongitud()),
+                  calcularDistanciaKm(puntoMedioLatitud, puntoMedioLongitud, candidata.getLatitud(), candidata.getLongitud())))
+            .orElseThrow(() -> new RuntimeException("No hay estaciones de Metro cargadas con coordenadas."));
+
+      SugerenciaPuntoMedioResponse response = new SugerenciaPuntoMedioResponse();
+      response.setPuntoMedioLatitud(redondearCoordenada(puntoMedioLatitud));
+      response.setPuntoMedioLongitud(redondearCoordenada(puntoMedioLongitud));
+      response.setEstacionSugerida(mapearAEstacionMetroResponse(estacion));
+      response.setDistanciaPuntoMedioKm(redondearDistancia(calcularDistanciaKm(
+            puntoMedioLatitud, puntoMedioLongitud, estacion.getLatitud(), estacion.getLongitud())));
+      response.setDistanciaOrigenKm(redondearDistancia(calcularDistanciaKm(
+            request.getLatitudOrigen(), request.getLongitudOrigen(), estacion.getLatitud(), estacion.getLongitud())));
+      response.setDistanciaDestinoKm(redondearDistancia(calcularDistanciaKm(
+            request.getLatitudDestino(), request.getLongitudDestino(), estacion.getLatitud(), estacion.getLongitud())));
+      response.setCriterio("Estacion de Metro de Santiago mas cercana al punto medio geografico entre ambos usuarios.");
+      return response;
    }
 
    // ==========================================
@@ -379,6 +409,10 @@ public class LocalizacionService {
       metro.setLinea(request.getLinea());
       metro.setOrden(request.getOrden());
       metro.setEsCombinacion(request.getEsCombinacion());
+      metro.setLatitud(request.getLatitud());
+      metro.setLongitud(request.getLongitud());
+      metro.setDireccion(request.getDireccion());
+      metro.setComuna(request.getComuna());
       EstacionMetro guardado = estacionMetroRepository.save(metro);
 
       return mapearAEstacionMetroResponse(guardado);
@@ -476,6 +510,29 @@ public class LocalizacionService {
       res.setLinea(metro.getLinea());
       res.setOrden(metro.getOrden());
       res.setEsCombinacion(metro.getEsCombinacion());
+      res.setLatitud(metro.getLatitud());
+      res.setLongitud(metro.getLongitud());
+      res.setDireccion(metro.getDireccion());
+      res.setComuna(metro.getComuna());
       return res;
+   }
+
+   private double calcularDistanciaKm(double latitudA, double longitudA, double latitudB, double longitudB) {
+      final double radioTierraKm = 6371.0;
+      double deltaLatitud = Math.toRadians(latitudB - latitudA);
+      double deltaLongitud = Math.toRadians(longitudB - longitudA);
+      double a = Math.sin(deltaLatitud / 2) * Math.sin(deltaLatitud / 2)
+            + Math.cos(Math.toRadians(latitudA)) * Math.cos(Math.toRadians(latitudB))
+                  * Math.sin(deltaLongitud / 2) * Math.sin(deltaLongitud / 2);
+      double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return radioTierraKm * c;
+   }
+
+   private double redondearDistancia(double valor) {
+      return Math.round(valor * 100.0) / 100.0;
+   }
+
+   private double redondearCoordenada(double valor) {
+      return Math.round(valor * 1_000_000.0) / 1_000_000.0;
    }
 }

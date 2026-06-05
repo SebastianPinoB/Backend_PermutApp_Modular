@@ -84,12 +84,14 @@ public class UsuarioService {
    }
 
    public String eliminarUsuario(int idUsuario){
-      if(usuarioRepository.existsById(idUsuario)){
-         usuarioRepository.deleteById(idUsuario);
-         return "Usuario eliminado correctamente";
-      }else{
+      Usuario usuario = usuarioRepository.findById(idUsuario).orElse(null);
+      if(usuario == null){
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
       }
+
+      usuario.setUsu_activo(false);
+      usuarioRepository.save(usuario);
+      return "Usuario desactivado correctamente";
    }
 
    public UsuarioDto actualizarUsuario(Integer idUsuario, ActualizarUsuario nuevo){

@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.PermutApp.model.Request.DireccionRequest;
 import com.example.PermutApp.model.Request.PuntoEncuentroRequest;
 import com.example.PermutApp.model.Request.RegionRequest;
+import com.example.PermutApp.model.Request.SugerenciaPuntoMedioRequest;
 import com.example.PermutApp.model.Response.CiudadResponse;
 import com.example.PermutApp.model.Response.ComunaResponse;
 import com.example.PermutApp.model.Response.DireccionResponse;
@@ -25,6 +27,7 @@ import com.example.PermutApp.model.Response.PaisConRegionResponse;
 import com.example.PermutApp.model.Response.PaisResponse;
 import com.example.PermutApp.model.Response.PuntoEncuentroResponse;
 import com.example.PermutApp.model.Response.RegionResponse;
+import com.example.PermutApp.model.Response.SugerenciaPuntoMedioResponse;
 import com.example.PermutApp.service.LocalizacionService;
 
 @RestController
@@ -108,6 +111,12 @@ public class LocalizacionController {
     @GetMapping("/metro/lineas/{linea}")
     public ResponseEntity<List<EstacionMetroResponse>> obtenerEstacionesPorLinea(@PathVariable String linea) {
         return ResponseEntity.ok(localizacionService.listarEstacionesPorLinea(linea));
+    }
+
+    @PostMapping("/metro/punto-medio")
+    public ResponseEntity<SugerenciaPuntoMedioResponse> sugerirMetroPuntoMedio(
+            @Valid @RequestBody SugerenciaPuntoMedioRequest request) {
+        return ResponseEntity.ok(localizacionService.sugerirMetroPuntoMedio(request));
     }
 
     // ==========================================

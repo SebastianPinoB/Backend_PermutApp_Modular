@@ -69,6 +69,10 @@ public class AuthService {
       Usuario usuario = usuarioRepository.findByUsuEmailIgnoreCase(request.email())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas"));
 
+      if (!usuario.isUsu_activo()) {
+         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La cuenta esta desactivada");
+      }
+
       return crearRespuesta(usuario);
    }
 

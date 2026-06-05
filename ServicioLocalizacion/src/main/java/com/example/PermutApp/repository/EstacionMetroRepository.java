@@ -7,7 +7,8 @@ import org.springframework.stereotype.Repository;
 import com.example.PermutApp.model.EstacionMetro;
 
 @Repository
-public interface EstacionMetroRepository extends JpaRepository<EstacionMetro, Integer>{
+public interface EstacionMetroRepository extends JpaRepository<EstacionMetro, Integer> {
    List<EstacionMetro> findByLinea(String linea);
+   List<EstacionMetro> findByLatitudIsNotNullAndLongitudIsNotNull();
    boolean existsByNombreIgnoreCaseAndLineaIgnoreCase(String nombre, String linea);
 }

@@ -9,4 +9,8 @@ public class EstacionMetroResponse {
    private String linea;
    private Integer orden;
    private Boolean esCombinacion;
+   private Double latitud;
+   private Double longitud;
+   private String direccion;
+   private String comuna;
 }

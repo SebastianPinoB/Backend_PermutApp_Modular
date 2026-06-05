@@ -9,7 +9,7 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "EstacionMetro")
+@Table(name = "estacion_metro")
 public class EstacionMetro {
    @Id
    @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,4 +18,8 @@ public class EstacionMetro {
    private String linea;
    private Integer orden;
    private Boolean esCombinacion;
+   private Double latitud;
+   private Double longitud;
+   private String direccion;
+   private String comuna;
 }
