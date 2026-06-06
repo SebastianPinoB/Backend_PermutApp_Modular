@@ -5,6 +5,7 @@ import java.util.Date;
 public record ConversacionDto(
       int conv_id,
       int publ_id,
+      Integer prod_id,
       String publ_titulo,
       int publ_autor_id,
       int interesado_id,

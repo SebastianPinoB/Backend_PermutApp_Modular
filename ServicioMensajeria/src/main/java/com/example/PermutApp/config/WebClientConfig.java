@@ -17,4 +17,9 @@ public class WebClientConfig {
    public WebClient publicacionWebClient(@Value("${services.publicacion.base-url:http://127.0.0.1:6000}") String publicacionBaseUrl) {
       return WebClient.builder().baseUrl(publicacionBaseUrl).build();
    }
+
+   @Bean
+   public WebClient productoWebClient(@Value("${services.producto.base-url:http://127.0.0.1:5050}") String productoBaseUrl) {
+      return WebClient.builder().baseUrl(productoBaseUrl).build();
+   }
 }

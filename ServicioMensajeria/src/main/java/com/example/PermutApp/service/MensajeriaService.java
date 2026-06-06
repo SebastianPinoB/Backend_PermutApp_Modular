@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.PermutApp.model.dto.ConversacionDto;
 import com.example.PermutApp.model.dto.MensajeDto;
 import com.example.PermutApp.model.dto.PublicacionDto;
+import com.example.PermutApp.model.dto.ProductoDto;
 import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.entities.Conversacion;
 import com.example.PermutApp.model.entities.Mensaje;
@@ -29,6 +30,7 @@ public class MensajeriaService {
    private final MensajeRepository mensajeRepository;
    private final WebClient usuarioWebClient;
    private final WebClient publicacionWebClient;
+   private final WebClient productoWebClient;
    private final NotificacionClient notificacionClient;
 
    public MensajeriaService(
@@ -36,17 +38,20 @@ public class MensajeriaService {
          MensajeRepository mensajeRepository,
          @Qualifier("usuarioWebClient") WebClient usuarioWebClient,
          @Qualifier("publicacionWebClient") WebClient publicacionWebClient,
+         @Qualifier("productoWebClient") WebClient productoWebClient,
          NotificacionClient notificacionClient) {
       this.conversacionRepository = conversacionRepository;
       this.mensajeRepository = mensajeRepository;
       this.usuarioWebClient = usuarioWebClient;
       this.publicacionWebClient = publicacionWebClient;
+      this.productoWebClient = productoWebClient;
       this.notificacionClient = notificacionClient;
    }
 
    public ConversacionDto iniciarConversacion(CrearConversacion request, String authorization) {
       validarUsuarioAutenticado(request.getInteresado_id(), authorization);
       PublicacionDto publicacion = obtenerPublicacion(request.getPubl_id());
+      ProductoDto producto = obtenerProducto(request.getProd_id());
       if (publicacion == null) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no existe o no esta disponible");
       }
@@ -54,13 +59,16 @@ public class MensajeriaService {
       if (!Boolean.TRUE.equals(publicacion.publ_activo())) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no esta activa");
       }
+      if (producto == null || producto.publ_id() != publicacion.publ_id()) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El producto no pertenece a la publicacion indicada");
+      }
       if (publicacion.publ_autor_id() == request.getInteresado_id()) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No puedes iniciar una conversacion con tu propia publicacion");
       }
 
       return conversacionRepository
-            .buscarActivaPorPublicacionEInteresado(request.getPubl_id(), request.getInteresado_id())
-            .map(conversacion -> convertirConversacion(conversacion, publicacion))
+            .buscarActivaPorProductoEInteresado(request.getProd_id(), request.getInteresado_id())
+            .map(conversacion -> reactivarParaInteresado(conversacion, publicacion))
             .orElseGet(() -> crearConversacionNueva(publicacion, request));
    }
 
@@ -90,8 +98,17 @@ public class MensajeriaService {
    public MensajeDto enviarMensaje(int conversacionId, EnviarMensaje request, String authorization) {
       validarUsuarioAutenticado(request.getEmisor_id(), authorization);
       Conversacion conversacion = obtenerConversacionPermitida(conversacionId, request.getEmisor_id());
+      if (conversacion.getProd_id() == null || obtenerProducto(conversacion.getProd_id()) == null) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+               "No puedes enviar mensajes porque el producto de este chat ya no esta disponible");
+      }
       Mensaje mensaje = guardarMensaje(conversacion.getConv_id(), request.getEmisor_id(), request.getContenido());
       conversacion.setConv_ultima_actividad(mensaje.getMens_fech_envio());
+      if (conversacion.getPubl_autor_id() == request.getEmisor_id()) {
+         conversacion.setConv_oculta_interesado(false);
+      } else {
+         conversacion.setConv_oculta_autor(false);
+      }
       conversacionRepository.save(conversacion);
       int receptorId = conversacion.getPubl_autor_id() == request.getEmisor_id()
             ? conversacion.getInteresado_id()
@@ -105,15 +122,29 @@ public class MensajeriaService {
       return convertirMensaje(mensaje);
    }
 
+   public void ocultarConversacion(int conversacionId, int usuarioId, String authorization) {
+      validarUsuarioAutenticado(usuarioId, authorization);
+      Conversacion conversacion = obtenerConversacionPermitida(conversacionId, usuarioId);
+      if (conversacion.getPubl_autor_id() == usuarioId) {
+         conversacion.setConv_oculta_autor(true);
+      } else {
+         conversacion.setConv_oculta_interesado(true);
+      }
+      conversacionRepository.save(conversacion);
+   }
+
    private ConversacionDto crearConversacionNueva(PublicacionDto publicacion, CrearConversacion request) {
       Date ahora = new Date();
       Conversacion conversacion = new Conversacion();
       conversacion.setPubl_id(publicacion.publ_id());
+      conversacion.setProd_id(request.getProd_id());
       conversacion.setPubl_autor_id(publicacion.publ_autor_id());
       conversacion.setInteresado_id(request.getInteresado_id());
       conversacion.setConv_fech_creacion(ahora);
       conversacion.setConv_ultima_actividad(ahora);
       conversacion.setConv_activa(true);
+      conversacion.setConv_oculta_autor(false);
+      conversacion.setConv_oculta_interesado(false);
       Conversacion guardada = conversacionRepository.save(conversacion);
 
       Mensaje inicial = guardarMensaje(guardada.getConv_id(), request.getInteresado_id(), request.getMensaje_inicial());
@@ -151,7 +182,21 @@ public class MensajeriaService {
       if (conversacion.getPubl_autor_id() != usuarioId && conversacion.getInteresado_id() != usuarioId) {
          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes acceder a esta conversacion");
       }
+      boolean estaOculta = conversacion.getPubl_autor_id() == usuarioId
+            ? Boolean.TRUE.equals(conversacion.getConv_oculta_autor())
+            : Boolean.TRUE.equals(conversacion.getConv_oculta_interesado());
+      if (estaOculta) {
+         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversacion no encontrada");
+      }
       return conversacion;
+   }
+
+   private ConversacionDto reactivarParaInteresado(Conversacion conversacion, PublicacionDto publicacion) {
+      if (Boolean.TRUE.equals(conversacion.getConv_oculta_interesado())) {
+         conversacion.setConv_oculta_interesado(false);
+         conversacionRepository.save(conversacion);
+      }
+      return convertirConversacion(conversacion, publicacion);
    }
 
    private UsuarioDto validarUsuarioAutenticado(int usuarioId, String authorization) {
@@ -190,6 +235,18 @@ public class MensajeriaService {
       }
    }
 
+   private ProductoDto obtenerProducto(int productoId) {
+      try {
+         return productoWebClient.get()
+               .uri("/producto/{idProducto}", productoId)
+               .retrieve()
+               .bodyToMono(ProductoDto.class)
+               .block();
+      } catch (Exception e) {
+         return null;
+      }
+   }
+
    private ConversacionDto convertirConversacion(Conversacion conversacion) {
       PublicacionDto publicacion = obtenerPublicacion(conversacion.getPubl_id());
       return convertirConversacion(conversacion, publicacion);
@@ -199,10 +256,17 @@ public class MensajeriaService {
       String ultimoMensaje = mensajeRepository.buscarUltimoPorConversacion(conversacion.getConv_id())
             .map(Mensaje::getMens_contenido)
             .orElse(null);
+      ProductoDto producto = conversacion.getProd_id() == null
+            ? null
+            : obtenerProducto(conversacion.getProd_id());
+      String titulo = producto == null
+            ? "Producto no disponible (chat historico)"
+            : publicacion == null ? producto.prod_nombre() : publicacion.publ_titulo();
       return new ConversacionDto(
             conversacion.getConv_id(),
             conversacion.getPubl_id(),
-            publicacion == null ? "Publicacion no disponible" : publicacion.publ_titulo(),
+            conversacion.getProd_id(),
+            titulo,
             conversacion.getPubl_autor_id(),
             conversacion.getInteresado_id(),
             conversacion.getConv_fech_creacion(),

@@ -22,6 +22,9 @@ public class Conversacion {
    @Column(nullable = false)
    private int publ_id;
 
+   @Column
+   private Integer prod_id;
+
    @Column(nullable = false)
    private int publ_autor_id;
 
@@ -36,4 +39,10 @@ public class Conversacion {
 
    @Column(nullable = false)
    private Boolean conv_activa;
+
+   @Column
+   private Boolean conv_oculta_autor;
+
+   @Column
+   private Boolean conv_oculta_interesado;
 }

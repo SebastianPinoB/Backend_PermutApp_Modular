@@ -2,6 +2,8 @@ package com.example.PermutApp.controller;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,5 +67,14 @@ public class MensajeriaController {
          @Valid @RequestBody EnviarMensaje request,
          @RequestHeader(value = "Authorization", required = false) String authorization) {
       return mensajeriaService.enviarMensaje(conversacionId, request, authorization);
+   }
+
+   @DeleteMapping("/conversaciones/{conversacionId}")
+   public ResponseEntity<Void> eliminarConversacion(
+         @PathVariable Integer conversacionId,
+         @RequestParam Integer usuarioId,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      mensajeriaService.ocultarConversacion(conversacionId, usuarioId, authorization);
+      return ResponseEntity.noContent().build();
    }
 }

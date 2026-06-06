@@ -15,6 +15,10 @@ public class CrearConversacion {
 
    @NotNull
    @Positive
+   private Integer prod_id;
+
+   @NotNull
+   @Positive
    private Integer interesado_id;
 
    @NotBlank
