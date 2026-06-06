@@ -7,6 +7,7 @@ Backend modular de PermutApp construido con Java 21 y Spring Boot. El repo conti
 - `ServicioProducto`: productos asociados a publicaciones, fotos y ubicacion aproximada.
 - `ServicioMensajeria`: conversaciones y mensajes para coordinar permutas.
 - `ServicioLocalizacion`: geografia, estaciones de Metro y sugerencia de punto medio seguro.
+- `ServicioNotificaciones`: historial, conteo no leido y envio push mediante Expo y Web Push.
 
 ## Requisitos
 
@@ -37,6 +38,8 @@ AWS_ACCESS_KEY_ID=access-key
 AWS_SECRET_ACCESS_KEY=secret-key
 IDENTITY_FACE_THRESHOLD=85
 IDENTITY_REVIEWER_EMAILS=se.pinob@duocuc.cl,alf.alvarezr@duocuc.cl,jos.conchaa@duocuc.cl
+SERVICIO_NOTIFICACIONES_BASE_URL=http://127.0.0.1:7002
+INTERNAL_NOTIFICATION_API_KEY=clave-interna-compartida
 ```
 
 ### ServicioPublicaciones
@@ -78,6 +81,8 @@ SUPABASE_DB_PASSWORD=password
 DB_MAX_POOL_SIZE=5
 SERVICIO_USUARIOS_BASE_URL=http://127.0.0.1:5001
 SERVICIO_PUBLICACIONES_BASE_URL=http://127.0.0.1:6001
+SERVICIO_NOTIFICACIONES_BASE_URL=http://127.0.0.1:7002
+INTERNAL_NOTIFICATION_API_KEY=clave-interna-compartida
 JWT_SECRET=misma-clave-usada-en-servicio-usuarios
 APP_CORS_ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006,http://127.0.0.1:8081,http://127.0.0.1:19006
 ```
@@ -93,6 +98,24 @@ SUPABASE_DB_PASSWORD=password
 DB_MAX_POOL_SIZE=2
 SERVER_PORT=5002
 ```
+
+### ServicioNotificaciones
+
+Archivo: `ServicioNotificaciones/.env`
+
+```env
+SUPABASE_DB_URL=jdbc:postgresql://host:5432/postgres?sslmode=require
+SUPABASE_DB_USER=usuario
+SUPABASE_DB_PASSWORD=password
+JWT_SECRET=misma-clave-usada-en-servicio-usuarios
+INTERNAL_NOTIFICATION_API_KEY=clave-interna-compartida
+VAPID_PUBLIC_KEY=clave-publica-base64url
+VAPID_PRIVATE_KEY=clave-privada-base64url
+VAPID_SUBJECT=mailto:soporte@permutapp.cl
+APP_CORS_ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006,http://127.0.0.1:8081,http://127.0.0.1:19006
+```
+
+Las claves VAPID se pueden generar una vez con `npx web-push generate-vapid-keys`. La misma `INTERNAL_NOTIFICATION_API_KEY` debe configurarse en Usuarios, Mensajeria y Notificaciones.
 
 ## SQL de Supabase
 
@@ -155,6 +178,15 @@ cd ServicioLocalizacion
 ./mvnw spring-boot:run
 ```
 
+### 6. ServicioNotificaciones
+
+Puerto: `7002`
+
+```bash
+cd ServicioNotificaciones
+./mvnw spring-boot:run
+```
+
 Orden recomendado para levantar todo:
 
 1. `ServicioUsuarios`
@@ -162,6 +194,7 @@ Orden recomendado para levantar todo:
 3. `ServicioProducto`
 4. `ServicioMensajeria`
 5. `ServicioLocalizacion`
+6. `ServicioNotificaciones`
 
 ## Como correr pruebas
 
@@ -187,6 +220,11 @@ cd ServicioMensajeria
 
 ```bash
 cd ServicioLocalizacion
+./mvnw test
+```
+
+```bash
+cd ServicioNotificaciones
 ./mvnw test
 ```
 
@@ -344,6 +382,22 @@ Ejemplo para iniciar conversacion:
   "mensaje_inicial": "Hola, me interesa coordinar una permuta."
 }
 ```
+
+Crear una conversacion nueva emite `PROPUESTA_PERMUTA`; los mensajes posteriores emiten `MENSAJE_NUEVO` para el otro participante. Los fallos de notificacion no bloquean el guardado del chat.
+
+### ServicioNotificaciones - `http://localhost:7002`
+
+```http
+POST   /notificaciones/suscripciones
+DELETE /notificaciones/suscripciones/{id}
+GET    /notificaciones
+GET    /notificaciones/no-leidas
+PATCH  /notificaciones/{id}/leer
+POST   /notificaciones/leer-todas
+GET    /notificaciones/vapid-public-key
+```
+
+El endpoint interno `POST /internal/notificaciones/eventos` requiere `X-Internal-Api-Key`. Los eventos actuales son `MENSAJE_NUEVO`, `PROPUESTA_PERMUTA`, `IDENTIDAD_APROBADA`, `IDENTIDAD_RECHAZADA` e `IDENTIDAD_REVISION`.
 
 ### ServicioLocalizacion - `http://localhost:5002`
 

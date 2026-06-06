@@ -43,6 +43,7 @@ public class IdentidadService {
    private final VerificacionIdentidadRepository verificacionRepository;
    private final RekognitionClient rekognitionClient;
    private final TextractClient textractClient;
+   private final NotificacionClient notificacionClient;
    private final double faceThreshold;
    private final List<String> reviewerEmails;
 
@@ -51,12 +52,14 @@ public class IdentidadService {
          VerificacionIdentidadRepository verificacionRepository,
          RekognitionClient rekognitionClient,
          TextractClient textractClient,
+         NotificacionClient notificacionClient,
          @Value("${identity.face-threshold:85}") double faceThreshold,
          @Value("${identity.reviewer-emails:}") String reviewerEmails) {
       this.usuarioRepository = usuarioRepository;
       this.verificacionRepository = verificacionRepository;
       this.rekognitionClient = rekognitionClient;
       this.textractClient = textractClient;
+      this.notificacionClient = notificacionClient;
       this.faceThreshold = faceThreshold;
       this.reviewerEmails = parseReviewerEmails(reviewerEmails);
    }
@@ -117,7 +120,9 @@ public class IdentidadService {
       verificacion.setVer_fecha(Instant.now());
       verificacion.setVer_observacion(observacion);
 
-      return convertirADto(verificacionRepository.save(verificacion));
+      VerificacionIdentidad guardada = verificacionRepository.save(verificacion);
+      notificacionClient.enviarEstadoIdentidad(usuarioId, tipoNotificacion(guardada.getVer_estado()));
+      return convertirADto(guardada);
    }
 
    public VerificacionIdentidadDto obtenerUltimaVerificacion(int usuarioId) {
@@ -157,13 +162,23 @@ public class IdentidadService {
       verificacion.setVer_revisor_email(emailRevisor.toLowerCase(Locale.ROOT));
       verificacion.setVer_fecha_revision(Instant.now());
       verificacion.setVer_observacion(limpiarObservacionRevision(observacion, estado));
-      return convertirADto(verificacionRepository.save(verificacion));
+      VerificacionIdentidad guardada = verificacionRepository.save(verificacion);
+      notificacionClient.enviarEstadoIdentidad(guardada.getUsu_id(), tipoNotificacion(guardada.getVer_estado()));
+      return convertirADto(guardada);
    }
 
    public boolean usuarioEstaVerificado(int usuarioId) {
       return verificacionRepository.findUltimaByUsuario(usuarioId)
             .map(verificacion -> verificacion.getVer_estado() == EstadoVerificacion.APROBADA)
             .orElse(false);
+   }
+
+   private String tipoNotificacion(EstadoVerificacion estado) {
+      return switch (estado) {
+         case APROBADA -> "IDENTIDAD_APROBADA";
+         case RECHAZADA -> "IDENTIDAD_RECHAZADA";
+         case PENDIENTE, REVISION_MANUAL -> "IDENTIDAD_REVISION";
+      };
    }
 
    public VerificacionIdentidadDto convertirADto(VerificacionIdentidad verificacion) {

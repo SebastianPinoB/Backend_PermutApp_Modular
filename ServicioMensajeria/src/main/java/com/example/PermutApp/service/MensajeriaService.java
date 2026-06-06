@@ -29,21 +29,27 @@ public class MensajeriaService {
    private final MensajeRepository mensajeRepository;
    private final WebClient usuarioWebClient;
    private final WebClient publicacionWebClient;
+   private final NotificacionClient notificacionClient;
 
    public MensajeriaService(
          ConversacionRepository conversacionRepository,
          MensajeRepository mensajeRepository,
          @Qualifier("usuarioWebClient") WebClient usuarioWebClient,
-         @Qualifier("publicacionWebClient") WebClient publicacionWebClient) {
+         @Qualifier("publicacionWebClient") WebClient publicacionWebClient,
+         NotificacionClient notificacionClient) {
       this.conversacionRepository = conversacionRepository;
       this.mensajeRepository = mensajeRepository;
       this.usuarioWebClient = usuarioWebClient;
       this.publicacionWebClient = publicacionWebClient;
+      this.notificacionClient = notificacionClient;
    }
 
    public ConversacionDto iniciarConversacion(CrearConversacion request, String authorization) {
       validarUsuarioAutenticado(request.getInteresado_id(), authorization);
       PublicacionDto publicacion = obtenerPublicacion(request.getPubl_id());
+      if (publicacion == null) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no existe o no esta disponible");
+      }
 
       if (!Boolean.TRUE.equals(publicacion.publ_activo())) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no esta activa");
@@ -87,6 +93,15 @@ public class MensajeriaService {
       Mensaje mensaje = guardarMensaje(conversacion.getConv_id(), request.getEmisor_id(), request.getContenido());
       conversacion.setConv_ultima_actividad(mensaje.getMens_fech_envio());
       conversacionRepository.save(conversacion);
+      int receptorId = conversacion.getPubl_autor_id() == request.getEmisor_id()
+            ? conversacion.getInteresado_id()
+            : conversacion.getPubl_autor_id();
+      notificacionClient.enviar(
+            receptorId,
+            "MENSAJE_NUEVO",
+            conversacion.getConv_id(),
+            conversacion.getPubl_id(),
+            null);
       return convertirMensaje(mensaje);
    }
 
@@ -103,7 +118,14 @@ public class MensajeriaService {
 
       Mensaje inicial = guardarMensaje(guardada.getConv_id(), request.getInteresado_id(), request.getMensaje_inicial());
       guardada.setConv_ultima_actividad(inicial.getMens_fech_envio());
-      return convertirConversacion(conversacionRepository.save(guardada), publicacion);
+      Conversacion actualizada = conversacionRepository.save(guardada);
+      notificacionClient.enviar(
+            actualizada.getPubl_autor_id(),
+            "PROPUESTA_PERMUTA",
+            actualizada.getConv_id(),
+            actualizada.getPubl_id(),
+            publicacion.publ_titulo());
+      return convertirConversacion(actualizada, publicacion);
    }
 
    private Mensaje guardarMensaje(int conversacionId, int emisorId, String contenido) {
@@ -164,7 +186,7 @@ public class MensajeriaService {
                .bodyToMono(PublicacionDto.class)
                .block();
       } catch (Exception e) {
-         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicacion no encontrada");
+         return null;
       }
    }
 
