@@ -291,7 +291,8 @@ Reglas actuales de verificacion:
 - Rostro coincide + RUN coincide + nombre coincide: `APROBADA`
 - Rostro coincide + RUN coincide + nombre no confirmado por OCR: `REVISION_MANUAL`
 - Rostro coincide + OCR no detecta RUN: `REVISION_MANUAL`
-- Rostro no coincide o RUN no coincide: `RECHAZADA`
+- Rostro no coincide o RUN valido no coincide: `RECHAZADA`
+- Numeros con digito verificador invalido se descartan como falsos positivos del OCR
 
 Para listar o resolver revisiones manuales, el correo del usuario logueado debe estar en `IDENTITY_REVIEWER_EMAILS`.
 

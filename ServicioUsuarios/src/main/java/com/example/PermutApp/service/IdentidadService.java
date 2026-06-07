@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +35,6 @@ import software.amazon.awssdk.services.textract.model.Document;
 @Service
 public class IdentidadService {
 
-   private static final Pattern RUN_PATTERN = Pattern.compile("(\\d{1,2}\\.?\\d{3}\\.?\\d{3})\\s*-?\\s*([0-9Kk])");
    private static final long MAX_IMAGE_BYTES = 5L * 1024L * 1024L;
 
    private final UsuarioRepository usuarioRepository;
@@ -241,10 +239,8 @@ public class IdentidadService {
             .map(block -> block.text() == null ? "" : block.text())
             .reduce("", (actual, linea) -> actual + "\n" + linea);
 
-      Matcher matcher = RUN_PATTERN.matcher(texto);
-      Optional<String> run = matcher.find()
-            ? Optional.of(matcher.group(1).replace(".", "") + "-" + matcher.group(2).toUpperCase(Locale.ROOT))
-            : Optional.empty();
+      String runRegistrado = usuario.getUsu_numrun() + "-" + usuario.getUsu_dvrun();
+      Optional<String> run = RunOcrExtractor.detectar(texto, runRegistrado);
 
       String textoNormalizado = normalizarTexto(texto);
       List<String> coincidenciasNombre = obtenerTokensUsuario(usuario).stream()
