@@ -23,11 +23,15 @@ import com.example.PermutApp.model.auth.LoginRequest;
 import com.example.PermutApp.model.auth.RegisterRequest;
 import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.service.AuthService;
+import com.example.PermutApp.service.PasswordRecoveryService;
 
 class AuthControllerTest {
 
    @Mock
    private AuthService authService;
+
+   @Mock
+   private PasswordRecoveryService passwordRecoveryService;
 
    private MockMvc mockMvc;
 
@@ -37,7 +41,7 @@ class AuthControllerTest {
       LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
       validator.afterPropertiesSet();
       mockMvc = MockMvcBuilders
-            .standaloneSetup(new AuthController(authService))
+            .standaloneSetup(new AuthController(authService, passwordRecoveryService))
             .setValidator(validator)
             .build();
    }

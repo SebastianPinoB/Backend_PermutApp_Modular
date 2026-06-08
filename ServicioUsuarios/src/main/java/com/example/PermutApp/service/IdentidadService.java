@@ -74,16 +74,11 @@ public class IdentidadService {
       Usuario usuario = usuarioRepository.findById(usuarioId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
-      byte[] carnetBytes = leerImagen(carnet, "carnet");
-      byte[] selfieBytes = leerImagen(selfie, "selfie");
-
-      double similarity = compararRostros(carnetBytes, selfieBytes);
-      OcrResultado ocr = extraerDatosCarnet(carnetBytes, usuario);
-      boolean faceMatch = similarity >= faceThreshold;
-      boolean runMatch = ocr.runDetectado()
-            .map(run -> normalizarRun(run).equals(normalizarRun(usuario.getUsu_numrun() + "-" + usuario.getUsu_dvrun())))
-            .orElse(false);
-      boolean nombreMatch = ocr.nombreMatch();
+      ResultadoIdentidad resultado = evaluarIdentidad(usuario, carnet, selfie);
+      OcrResultado ocr = resultado.ocr();
+      boolean faceMatch = resultado.faceMatch();
+      boolean runMatch = resultado.runMatch();
+      boolean nombreMatch = resultado.nombreMatch();
 
       EstadoVerificacion estado;
       String observacion;
@@ -107,7 +102,7 @@ public class IdentidadService {
       VerificacionIdentidad verificacion = new VerificacionIdentidad();
       verificacion.setUsu_id(usuario.getUsu_id());
       verificacion.setVer_estado(estado);
-      verificacion.setVer_face_similarity(similarity);
+      verificacion.setVer_face_similarity(resultado.similarity());
       verificacion.setVer_face_threshold(faceThreshold);
       verificacion.setVer_face_provider("AMAZON_REKOGNITION");
       verificacion.setVer_ocr_run_detectado(ocr.runDetectado().orElse(null));
@@ -121,6 +116,48 @@ public class IdentidadService {
       VerificacionIdentidad guardada = verificacionRepository.save(verificacion);
       notificacionClient.enviarEstadoIdentidad(usuarioId, tipoNotificacion(guardada.getVer_estado()));
       return convertirADto(guardada);
+   }
+
+   public Usuario validarIdentidadParaRecuperacion(
+         String email,
+         MultipartFile carnet,
+         MultipartFile selfie) {
+      Usuario usuario = usuarioRepository.findByUsuEmailIgnoreCase(email)
+            .filter(Usuario::isUsu_activo)
+            .orElseThrow(this::recuperacionNoAutorizada);
+
+      boolean identidadPreviamenteAprobada = verificacionRepository.findUltimaByUsuario(usuario.getUsu_id())
+            .map(verificacion -> verificacion.getVer_estado() == EstadoVerificacion.APROBADA)
+            .orElse(false);
+      if (!identidadPreviamenteAprobada) {
+         throw recuperacionNoAutorizada();
+      }
+
+      ResultadoIdentidad resultado = evaluarIdentidad(usuario, carnet, selfie);
+      if (!resultado.faceMatch() || !resultado.runMatch() || !resultado.nombreMatch()) {
+         throw recuperacionNoAutorizada();
+      }
+      return usuario;
+   }
+
+   private ResponseStatusException recuperacionNoAutorizada() {
+      return new ResponseStatusException(
+            HttpStatus.UNAUTHORIZED,
+            "No fue posible confirmar la identidad con los datos proporcionados");
+   }
+
+   private ResultadoIdentidad evaluarIdentidad(
+         Usuario usuario,
+         MultipartFile carnet,
+         MultipartFile selfie) {
+      byte[] carnetBytes = leerImagen(carnet, "carnet");
+      byte[] selfieBytes = leerImagen(selfie, "selfie");
+      double similarity = compararRostros(carnetBytes, selfieBytes);
+      OcrResultado ocr = extraerDatosCarnet(carnetBytes, usuario);
+      boolean runMatch = ocr.runDetectado()
+            .map(run -> normalizarRun(run).equals(normalizarRun(usuario.getUsu_numrun() + "-" + usuario.getUsu_dvrun())))
+            .orElse(false);
+      return new ResultadoIdentidad(similarity, similarity >= faceThreshold, runMatch, ocr.nombreMatch(), ocr);
    }
 
    public VerificacionIdentidadDto obtenerUltimaVerificacion(int usuarioId) {
@@ -338,5 +375,13 @@ public class IdentidadService {
    }
 
    private record OcrResultado(Optional<String> runDetectado, Optional<String> nombreDetectado, boolean nombreMatch) {
+   }
+
+   private record ResultadoIdentidad(
+         double similarity,
+         boolean faceMatch,
+         boolean runMatch,
+         boolean nombreMatch,
+         OcrResultado ocr) {
    }
 }
