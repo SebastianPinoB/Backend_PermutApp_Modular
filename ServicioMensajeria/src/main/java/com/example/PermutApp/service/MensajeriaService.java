@@ -3,6 +3,8 @@ package com.example.PermutApp.service;
 import java.util.Date;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import com.example.PermutApp.security.JwtService;
 
 @Service
 public class MensajeriaService {
+
+   private static final Logger log = LoggerFactory.getLogger(MensajeriaService.class);
 
    private final ConversacionRepository conversacionRepository;
    private final MensajeRepository mensajeRepository;
@@ -57,8 +61,12 @@ public class MensajeriaService {
       if (!Boolean.TRUE.equals(publicacion.publ_activo())) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no esta activa");
       }
-      if (producto == null || producto.publ_id() != publicacion.publ_id()) {
-         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El producto no pertenece a la publicacion indicada");
+      if (producto == null) {
+         log.warn("No se pudo validar producto {} al iniciar conversacion para publicacion {}",
+               request.getProd_id(), request.getPubl_id());
+      } else if (producto.publ_id() != publicacion.publ_id()) {
+         log.warn("Producto {} informado con publicacion {}, pero ServicioProducto retorno publicacion {}",
+               request.getProd_id(), publicacion.publ_id(), producto.publ_id());
       }
       if (publicacion.publ_autor_id() == request.getInteresado_id()) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No puedes iniciar una conversacion con tu propia publicacion");
@@ -96,9 +104,13 @@ public class MensajeriaService {
    public MensajeDto enviarMensaje(int conversacionId, EnviarMensaje request, String authorization) {
       validarUsuarioAutenticado(request.getEmisor_id(), authorization);
       Conversacion conversacion = obtenerConversacionPermitida(conversacionId, request.getEmisor_id());
-      if (conversacion.getProd_id() == null || obtenerProducto(conversacion.getProd_id()) == null) {
+      if (conversacion.getProd_id() == null) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                "No puedes enviar mensajes porque el producto de este chat ya no esta disponible");
+      }
+      if (obtenerProducto(conversacion.getProd_id()) == null) {
+         log.warn("No se pudo validar producto {} antes de enviar mensaje en conversacion {}",
+               conversacion.getProd_id(), conversacionId);
       }
       Mensaje mensaje = guardarMensaje(conversacion.getConv_id(), request.getEmisor_id(), request.getContenido());
       conversacion.setConv_ultima_actividad(mensaje.getMens_fech_envio());
@@ -258,9 +270,9 @@ public class MensajeriaService {
       ProductoDto producto = conversacion.getProd_id() == null
             ? null
             : obtenerProducto(conversacion.getProd_id());
-      String titulo = producto == null
-            ? "Producto no disponible (chat historico)"
-            : publicacion == null ? producto.prod_nombre() : publicacion.publ_titulo();
+      String titulo = publicacion != null
+            ? publicacion.publ_titulo()
+            : producto == null ? "Producto no disponible (chat historico)" : producto.prod_nombre();
       return new ConversacionDto(
             conversacion.getConv_id(),
             conversacion.getPubl_id(),
