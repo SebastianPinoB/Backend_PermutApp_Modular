@@ -37,6 +37,14 @@ public class JwtService {
       return email;
    }
 
+   public int obtenerUsuarioId(String token) {
+      long uid = obtenerLongClaim(decodificarPayloadComoMap(token), "uid");
+      if (uid < 1 || uid > Integer.MAX_VALUE) {
+         throw new IllegalArgumentException("Claim uid invalido");
+      }
+      return (int) uid;
+   }
+
    public boolean esTokenValido(String token) {
       // Valida firma y expiracion sin depender de librerias JWT externas.
       String[] parts = token.split("\\.");

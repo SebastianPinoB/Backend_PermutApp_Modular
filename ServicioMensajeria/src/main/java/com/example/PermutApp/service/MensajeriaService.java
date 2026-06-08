@@ -5,8 +5,6 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,37 +13,37 @@ import com.example.PermutApp.model.dto.ConversacionDto;
 import com.example.PermutApp.model.dto.MensajeDto;
 import com.example.PermutApp.model.dto.PublicacionDto;
 import com.example.PermutApp.model.dto.ProductoDto;
-import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.entities.Conversacion;
 import com.example.PermutApp.model.entities.Mensaje;
 import com.example.PermutApp.model.request.CrearConversacion;
 import com.example.PermutApp.model.request.EnviarMensaje;
 import com.example.PermutApp.repository.ConversacionRepository;
 import com.example.PermutApp.repository.MensajeRepository;
+import com.example.PermutApp.security.JwtService;
 
 @Service
 public class MensajeriaService {
 
    private final ConversacionRepository conversacionRepository;
    private final MensajeRepository mensajeRepository;
-   private final WebClient usuarioWebClient;
    private final WebClient publicacionWebClient;
    private final WebClient productoWebClient;
    private final NotificacionClient notificacionClient;
+   private final JwtService jwtService;
 
    public MensajeriaService(
          ConversacionRepository conversacionRepository,
          MensajeRepository mensajeRepository,
-         @Qualifier("usuarioWebClient") WebClient usuarioWebClient,
          @Qualifier("publicacionWebClient") WebClient publicacionWebClient,
          @Qualifier("productoWebClient") WebClient productoWebClient,
-         NotificacionClient notificacionClient) {
+         NotificacionClient notificacionClient,
+         JwtService jwtService) {
       this.conversacionRepository = conversacionRepository;
       this.mensajeRepository = mensajeRepository;
-      this.usuarioWebClient = usuarioWebClient;
       this.publicacionWebClient = publicacionWebClient;
       this.productoWebClient = productoWebClient;
       this.notificacionClient = notificacionClient;
+      this.jwtService = jwtService;
    }
 
    public ConversacionDto iniciarConversacion(CrearConversacion request, String authorization) {
@@ -199,28 +197,29 @@ public class MensajeriaService {
       return convertirConversacion(conversacion, publicacion);
    }
 
-   private UsuarioDto validarUsuarioAutenticado(int usuarioId, String authorization) {
-      UsuarioDto usuario;
+   private void validarUsuarioAutenticado(int usuarioId, String authorization) {
+      String token = extraerBearerToken(authorization);
+      if (token == null || !jwtService.esTokenValido(token)) {
+         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesion no valida");
+      }
+
+      int usuarioAutenticadoId;
       try {
-         var request = usuarioWebClient.get().uri("/usuario/{idUsuario}", usuarioId);
-         if (authorization != null && !authorization.isBlank()) {
-            request = request.header("Authorization", authorization);
-         }
-         usuario = request.retrieve().bodyToMono(UsuarioDto.class).block();
+         usuarioAutenticadoId = jwtService.obtenerUsuarioId(token);
       } catch (Exception e) {
-         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
+         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesion no valida");
       }
 
-      if (usuario == null || !Boolean.TRUE.equals(usuario.usu_activo())) {
-         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
-      }
-
-      Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-      String emailAutenticado = authentication == null ? null : String.valueOf(authentication.getPrincipal());
-      if (emailAutenticado == null || !usuario.usu_email().equalsIgnoreCase(emailAutenticado)) {
+      if (usuarioAutenticadoId != usuarioId) {
          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes operar conversaciones de otro usuario");
       }
-      return usuario;
+   }
+
+   private String extraerBearerToken(String authorization) {
+      if (authorization == null || !authorization.startsWith("Bearer ")) {
+         return null;
+      }
+      return authorization.substring(7);
    }
 
    private PublicacionDto obtenerPublicacion(int publicacionId) {
