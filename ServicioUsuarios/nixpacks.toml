@@ -1,0 +1,2 @@
+[start]
+cmd = "java -XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=160m -Xss512k -jar target/PermutApp-0.0.1-SNAPSHOT.jar"
