@@ -7,10 +7,13 @@ import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
+import org.apache.http.HttpResponse;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
 import org.bouncycastle.math.ec.ECPoint;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +23,7 @@ import nl.martijndwars.webpush.Utils;
 
 @Component
 public class WebPushSender {
+   private static final Logger log = LoggerFactory.getLogger(WebPushSender.class);
    private final String publicKey;
    private final String privateKey;
    private final String subject;
@@ -40,8 +44,14 @@ public class WebPushSender {
       return !publicKey.isBlank() && !privateKey.isBlank();
    }
 
-   public boolean enviar(String endpoint, String p256dh, String auth, String payload) {
-      if (!estaConfigurado() || p256dh == null || auth == null) return false;
+   public ResultadoEnvioPush enviar(String endpoint, String p256dh, String auth, String payload) {
+      if (!estaConfigurado()) {
+         log.warn("Web Push no esta configurado: faltan claves VAPID");
+         return ResultadoEnvioPush.ERROR_TEMPORAL;
+      }
+      if (p256dh == null || auth == null) {
+         return ResultadoEnvioPush.SUSCRIPCION_INVALIDA;
+      }
       try {
          PushService pushService = new PushService();
          pushService.setSubject(subject);
@@ -52,10 +62,18 @@ public class WebPushSender {
                cargarClaveUsuario(p256dh),
                decodificarBase64Url(auth),
                payload.getBytes(StandardCharsets.UTF_8));
-         pushService.send(notification);
-         return true;
+         HttpResponse response = pushService.send(notification);
+         int status = response.getStatusLine().getStatusCode();
+         if (status >= 200 && status < 300) return ResultadoEnvioPush.ENVIADA;
+         if (status == 404 || status == 410) return ResultadoEnvioPush.SUSCRIPCION_INVALIDA;
+         log.warn("Web Push respondio {} para {}", status, endpoint);
+         return ResultadoEnvioPush.ERROR_TEMPORAL;
+      } catch (IllegalArgumentException e) {
+         log.warn("Suscripcion Web Push invalida para {}: {}", endpoint, e.getMessage());
+         return ResultadoEnvioPush.SUSCRIPCION_INVALIDA;
       } catch (Exception e) {
-         return false;
+         log.warn("Error enviando Web Push a {}: {}", endpoint, e.getMessage());
+         return ResultadoEnvioPush.ERROR_TEMPORAL;
       }
    }
 

@@ -15,8 +15,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.PermutApp.model.dto.ConversacionDto;
 import com.example.PermutApp.model.dto.MensajeDto;
+import com.example.PermutApp.model.dto.ResumenValoracionDto;
+import com.example.PermutApp.model.dto.ValoracionDto;
 import com.example.PermutApp.model.request.CrearConversacion;
+import com.example.PermutApp.model.request.CrearValoracion;
 import com.example.PermutApp.model.request.EnviarMensaje;
+import com.example.PermutApp.model.request.OperacionConversacion;
+import com.example.PermutApp.model.request.SeleccionarOferta;
 import com.example.PermutApp.service.MensajeriaService;
 
 import jakarta.validation.Valid;
@@ -24,7 +29,6 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("chat")
 public class MensajeriaController {
-
    private final MensajeriaService mensajeriaService;
 
    public MensajeriaController(MensajeriaService mensajeriaService) {
@@ -67,6 +71,43 @@ public class MensajeriaController {
          @Valid @RequestBody EnviarMensaje request,
          @RequestHeader(value = "Authorization", required = false) String authorization) {
       return mensajeriaService.enviarMensaje(conversacionId, request, authorization);
+   }
+
+   @PostMapping("/conversaciones/{conversacionId}/oferta")
+   public ConversacionDto seleccionarOferta(
+         @PathVariable Integer conversacionId,
+         @Valid @RequestBody SeleccionarOferta request,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      return mensajeriaService.seleccionarOferta(conversacionId, request, authorization);
+   }
+
+   @PostMapping("/conversaciones/{conversacionId}/finalizacion")
+   public ConversacionDto solicitarFinalizacion(
+         @PathVariable Integer conversacionId,
+         @Valid @RequestBody OperacionConversacion request,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      return mensajeriaService.solicitarFinalizacion(conversacionId, request.usuario_id(), authorization);
+   }
+
+   @PostMapping("/conversaciones/{conversacionId}/finalizacion/confirmar")
+   public ConversacionDto confirmarFinalizacion(
+         @PathVariable Integer conversacionId,
+         @Valid @RequestBody OperacionConversacion request,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      return mensajeriaService.confirmarFinalizacion(conversacionId, request.usuario_id(), authorization);
+   }
+
+   @PostMapping("/conversaciones/{conversacionId}/valoraciones")
+   public ValoracionDto valorar(
+         @PathVariable Integer conversacionId,
+         @Valid @RequestBody CrearValoracion request,
+         @RequestHeader(value = "Authorization", required = false) String authorization) {
+      return mensajeriaService.valorar(conversacionId, request, authorization);
+   }
+
+   @GetMapping("/usuarios/{usuarioId}/valoraciones/resumen")
+   public ResumenValoracionDto resumenValoraciones(@PathVariable Integer usuarioId) {
+      return mensajeriaService.obtenerResumenValoracion(usuarioId);
    }
 
    @DeleteMapping("/conversaciones/{conversacionId}")

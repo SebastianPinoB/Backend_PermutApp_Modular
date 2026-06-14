@@ -22,4 +22,9 @@ public interface SuscripcionNotificacionRepository extends JpaRepository<Suscrip
    @Transactional
    @Query(value = "update notificacion_suscripcion set nsus_activa = false, nsus_fecha_actualizacion = now() where nsus_id = :id and usu_id = :usuarioId", nativeQuery = true)
    int desactivar(@Param("id") int id, @Param("usuarioId") int usuarioId);
+
+   @Modifying
+   @Transactional
+   @Query(value = "update notificacion_suscripcion set nsus_activa = false, nsus_fecha_actualizacion = now() where nsus_id = :id", nativeQuery = true)
+   int desactivarPorId(@Param("id") int id);
 }

@@ -19,10 +19,10 @@ import com.example.PermutApp.security.JwtAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
-
    @Bean
-   public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
-      // El catalogo queda publico para invitados; crear, editar y eliminar exige JWT.
+   public SecurityFilterChain securityFilterChain(
+         HttpSecurity http,
+         JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
       http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> { })
@@ -30,24 +30,24 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                   .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                   .requestMatchers(HttpMethod.GET, "/publicacion/**").permitAll()
+                  .requestMatchers("/internal/**").permitAll()
                   .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
       return http.build();
    }
 
    @Bean
-   public CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") String allowedOrigins) {
+   public CorsConfigurationSource corsConfigurationSource(
+         @Value("${app.cors.allowed-origins}") String allowedOrigins) {
       CorsConfiguration configuration = new CorsConfiguration();
       configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
             .map(String::trim)
             .filter(origin -> !origin.isBlank())
             .toList());
       configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-      configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+      configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Internal-Api-Key"));
       configuration.setExposedHeaders(List.of("Authorization"));
       configuration.setAllowCredentials(true);
-
       UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
       source.registerCorsConfiguration("/**", configuration);
       return source;

@@ -4,6 +4,8 @@ import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,20 +16,20 @@ import lombok.Data;
 @Data
 @Table(name = "mensajeria_mensaje")
 public class Mensaje {
-
    @Id
    @GeneratedValue(strategy = GenerationType.IDENTITY)
    private int mens_id;
-
    @Column(nullable = false)
    private int conv_id;
-
    @Column(nullable = false)
    private int emisor_id;
-
    @Column(nullable = false, length = 1000)
    private String mens_contenido;
-
    @Column(nullable = false)
    private Date mens_fech_envio;
+   @Enumerated(EnumType.STRING)
+   @Column(length = 16)
+   private TipoMensaje mens_tipo;
+   @Column(columnDefinition = "text")
+   private String mens_datos;
 }

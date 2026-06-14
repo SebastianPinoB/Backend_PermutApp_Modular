@@ -1,10 +1,13 @@
 package com.example.PermutApp.service;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,7 +17,6 @@ import com.example.PermutApp.model.dto.SuscripcionDto;
 import com.example.PermutApp.model.entities.CanalNotificacion;
 import com.example.PermutApp.model.entities.Notificacion;
 import com.example.PermutApp.model.entities.SuscripcionNotificacion;
-import com.example.PermutApp.model.entities.TipoNotificacion;
 import com.example.PermutApp.model.request.CrearEventoNotificacionRequest;
 import com.example.PermutApp.model.request.RegistrarSuscripcionRequest;
 import com.example.PermutApp.repository.NotificacionRepository;
@@ -24,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class NotificacionService {
+   private static final Logger log = LoggerFactory.getLogger(NotificacionService.class);
    private final NotificacionRepository notificacionRepository;
    private final SuscripcionNotificacionRepository suscripcionRepository;
    private final ExpoPushSender expoPushSender;
@@ -43,10 +46,7 @@ public class NotificacionService {
    }
 
    public SuscripcionDto registrarSuscripcion(int usuarioId, RegistrarSuscripcionRequest request) {
-      if (request.canal() == CanalNotificacion.WEB &&
-            (request.p256dh() == null || request.p256dh().isBlank() || request.auth() == null || request.auth().isBlank())) {
-         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La suscripcion web requiere p256dh y auth");
-      }
+      validarSuscripcion(request);
       Instant ahora = Instant.now();
       SuscripcionNotificacion suscripcion = suscripcionRepository.buscarPorDestino(request.destino().trim())
             .orElseGet(() -> {
@@ -62,7 +62,9 @@ public class NotificacionService {
       suscripcion.setNsus_plataforma(request.plataforma().trim().toLowerCase());
       suscripcion.setNsus_activa(true);
       suscripcion.setNsus_fecha_actualizacion(ahora);
-      return convertirSuscripcion(suscripcionRepository.save(suscripcion));
+      SuscripcionNotificacion guardada = suscripcionRepository.save(suscripcion);
+      log.info("Suscripcion {} registrada para usuario {} por {}", guardada.getNsus_id(), usuarioId, request.canal());
+      return convertirSuscripcion(guardada);
    }
 
    public void desactivarSuscripcion(int usuarioId, int suscripcionId) {
@@ -100,6 +102,11 @@ public class NotificacionService {
       notificacion.setNotif_fecha(Instant.now());
       notificacion.setNotif_leida(false);
       Notificacion guardada = notificacionRepository.save(notificacion);
+      log.info(
+            "Evento {} persistido como notificacion {} para usuario {}",
+            request.tipo(),
+            guardada.getNotif_id(),
+            request.usuarioId());
       enviarPush(request.usuarioId(), guardada, contenido.datos());
       return convertirNotificacion(guardada);
    }
@@ -110,14 +117,30 @@ public class NotificacionService {
             "body", notificacion.getNotif_cuerpo(),
             "data", datos));
       for (SuscripcionNotificacion suscripcion : suscripcionRepository.listarActivasPorUsuario(usuarioId)) {
-         if (suscripcion.getNsus_canal() == CanalNotificacion.EXPO) {
-            expoPushSender.enviar(suscripcion.getNsus_destino(), notificacion.getNotif_titulo(), notificacion.getNotif_cuerpo(), datos);
+         ResultadoEnvioPush resultado = suscripcion.getNsus_canal() == CanalNotificacion.EXPO
+               ? expoPushSender.enviar(
+                     suscripcion.getNsus_destino(),
+                     notificacion.getNotif_titulo(),
+                     notificacion.getNotif_cuerpo(),
+                     datos)
+               : webPushSender.enviar(
+                     suscripcion.getNsus_destino(),
+                     suscripcion.getNsus_p256dh(),
+                     suscripcion.getNsus_auth(),
+                     payload);
+         if (resultado == ResultadoEnvioPush.SUSCRIPCION_INVALIDA) {
+            suscripcionRepository.desactivarPorId(suscripcion.getNsus_id());
+            log.warn("Suscripcion {} desactivada porque el proveedor la rechazo", suscripcion.getNsus_id());
+         } else if (resultado == ResultadoEnvioPush.ERROR_TEMPORAL) {
+            log.warn(
+                  "No se pudo entregar la notificacion {} mediante la suscripcion {}",
+                  notificacion.getNotif_id(),
+                  suscripcion.getNsus_id());
          } else {
-            webPushSender.enviar(
-                  suscripcion.getNsus_destino(),
-                  suscripcion.getNsus_p256dh(),
-                  suscripcion.getNsus_auth(),
-                  payload);
+            log.info(
+                  "Notificacion {} entregada mediante la suscripcion {}",
+                  notificacion.getNotif_id(),
+                  suscripcion.getNsus_id());
          }
       }
    }
@@ -130,17 +153,21 @@ public class NotificacionService {
       if (request.publicacionId() != null) datos.put("publicacionId", request.publicacionId());
 
       return switch (request.tipo()) {
-         case MENSAJE_NUEVO -> {
-            datos.put("ruta", "/chat/" + request.conversacionId());
-            yield new Contenido("Nuevo mensaje", "Tienes un nuevo mensaje en PermutApp.", datos);
-         }
+         case MENSAJE_NUEVO -> contenidoChat("Nuevo mensaje", "Tienes un nuevo mensaje en PermutApp.", request, datos);
          case PROPUESTA_PERMUTA -> {
-            datos.put("ruta", "/chat/" + request.conversacionId());
             String cuerpo = tituloPublicacion == null
                   ? "Recibiste una nueva propuesta de permuta."
                   : "Alguien quiere permutar por " + tituloPublicacion + ".";
-            yield new Contenido("Nueva propuesta de permuta", cuerpo, datos);
+            yield contenidoChat("Nueva propuesta de permuta", cuerpo, request, datos);
          }
+         case OFERTA_COMPARTIDA ->
+            contenidoChat("Nueva oferta", "Compartieron una permuta en el chat.", request, datos);
+         case FINALIZACION_SOLICITADA ->
+            contenidoChat("Confirmacion pendiente", "La otra persona propuso finalizar la permuta.", request, datos);
+         case PERMUTA_FINALIZADA ->
+            contenidoChat("Permuta finalizada", "Ambas personas confirmaron la permuta. Ya puedes valorar.", request, datos);
+         case VALORACION_RECIBIDA ->
+            contenidoChat("Nueva valoracion", "Recibiste una valoracion por una permuta finalizada.", request, datos);
          case IDENTIDAD_APROBADA -> {
             datos.put("ruta", "/profile");
             yield new Contenido("Identidad verificada", "Tu identidad fue aprobada correctamente.", datos);
@@ -156,6 +183,38 @@ public class NotificacionService {
       };
    }
 
+   private Contenido contenidoChat(
+         String titulo,
+         String cuerpo,
+         CrearEventoNotificacionRequest request,
+         Map<String, Object> datos) {
+      datos.put("ruta", "/chat/" + request.conversacionId());
+      return new Contenido(titulo, cuerpo, datos);
+   }
+
+   private void validarSuscripcion(RegistrarSuscripcionRequest request) {
+      String destino = request.destino().trim();
+      if (request.canal() == CanalNotificacion.EXPO) {
+         boolean valido = destino.startsWith("ExponentPushToken[") || destino.startsWith("ExpoPushToken[");
+         if (!valido || !destino.endsWith("]")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token Expo invalido");
+         }
+         return;
+      }
+      if (request.p256dh() == null || request.p256dh().isBlank()
+            || request.auth() == null || request.auth().isBlank()) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La suscripcion web requiere p256dh y auth");
+      }
+      try {
+         URI uri = URI.create(destino);
+         if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new IllegalArgumentException();
+         }
+      } catch (Exception e) {
+         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Endpoint Web Push invalido");
+      }
+   }
+
    private NotificacionDto convertirNotificacion(Notificacion entity) {
       try {
          Map<String, Object> datos = objectMapper.readValue(entity.getNotif_datos(), new TypeReference<>() { });
@@ -167,7 +226,11 @@ public class NotificacionService {
    }
 
    private SuscripcionDto convertirSuscripcion(SuscripcionNotificacion entity) {
-      return new SuscripcionDto(entity.getNsus_id(), entity.getNsus_canal(), entity.getNsus_plataforma(), entity.isNsus_activa());
+      return new SuscripcionDto(
+            entity.getNsus_id(),
+            entity.getNsus_canal(),
+            entity.getNsus_plataforma(),
+            entity.isNsus_activa());
    }
 
    private String escribirJson(Object value) {

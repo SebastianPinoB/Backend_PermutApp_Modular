@@ -11,8 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Component
 public class NotificacionClient {
-   private static final Logger LOGGER = LoggerFactory.getLogger(NotificacionClient.class);
-
+   private static final Logger log = LoggerFactory.getLogger(NotificacionClient.class);
    private final WebClient webClient;
    private final String internalApiKey;
 
@@ -45,7 +44,15 @@ public class NotificacionClient {
             .retrieve()
             .toBodilessEntity()
             .subscribe(
-                  ignored -> { },
-                  error -> LOGGER.warn("No fue posible emitir el evento de notificacion {}: {}", tipo, error.getMessage()));
+                  response -> log.info(
+                        "Evento {} emitido para usuario {} con estado {}",
+                        tipo,
+                        usuarioId,
+                        response.getStatusCode()),
+                  error -> log.error(
+                        "Fallo al emitir evento {} para usuario {}: {}",
+                        tipo,
+                        usuarioId,
+                        error.getMessage()));
    }
 }
