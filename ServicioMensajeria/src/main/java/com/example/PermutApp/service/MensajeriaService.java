@@ -77,7 +77,10 @@ public class MensajeriaService {
       if (publicacion == null || !Boolean.TRUE.equals(publicacion.publ_activo())) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La publicacion no existe o no esta disponible");
       }
-      if (producto == null || producto.publ_id() != publicacion.publ_id()) {
+      if (producto == null) {
+         throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "No fue posible consultar el producto");
+      }
+      if (producto.publ_id() != publicacion.publ_id()) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El producto no pertenece a la publicacion");
       }
       if (publicacion.publ_autor_id() == request.getInteresado_id()) {

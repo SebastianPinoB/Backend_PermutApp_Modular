@@ -19,7 +19,12 @@ public class WebClientConfig {
    }
 
    @Bean
-   public WebClient productoWebClient(@Value("${services.producto.base-url:http://127.0.0.1:5050}") String productoBaseUrl) {
-      return WebClient.builder().baseUrl(productoBaseUrl).build();
+   public WebClient productoWebClient(
+         @Value("${services.producto.base-url:http://127.0.0.1:5050}") String productoBaseUrl,
+         @Value("${services.producto.max-in-memory-size-bytes:10485760}") int maxInMemorySizeBytes) {
+      return WebClient.builder()
+            .baseUrl(productoBaseUrl)
+            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxInMemorySizeBytes))
+            .build();
    }
 }
