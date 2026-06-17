@@ -26,4 +26,9 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
    @Transactional
    @Query(value = "update notificacion set notif_leida = true where usu_id = :usuarioId and notif_leida = false", nativeQuery = true)
    int marcarTodasLeidas(@Param("usuarioId") int usuarioId);
+
+   @Modifying
+   @Transactional
+   @Query(value = "delete from notificacion where notif_id = :id and usu_id = :usuarioId", nativeQuery = true)
+   int eliminar(@Param("id") int id, @Param("usuarioId") int usuarioId);
 }

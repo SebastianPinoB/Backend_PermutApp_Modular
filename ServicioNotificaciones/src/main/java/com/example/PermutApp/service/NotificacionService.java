@@ -91,6 +91,12 @@ public class NotificacionService {
       notificacionRepository.marcarTodasLeidas(usuarioId);
    }
 
+   public void eliminar(int usuarioId, int notificacionId) {
+      if (notificacionRepository.eliminar(notificacionId, usuarioId) == 0) {
+         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificacion no encontrada");
+      }
+   }
+
    public NotificacionDto crearEvento(CrearEventoNotificacionRequest request) {
       Contenido contenido = construirContenido(request);
       Notificacion notificacion = new Notificacion();

@@ -67,6 +67,11 @@ public class NotificacionController {
       service.marcarLeida(usuarioAutenticado(), id);
    }
 
+   @DeleteMapping("/notificaciones/{id}")
+   public void eliminar(@PathVariable int id) {
+      service.eliminar(usuarioAutenticado(), id);
+   }
+
    @PostMapping("/notificaciones/leer-todas")
    public void marcarTodasLeidas() {
       service.marcarTodasLeidas(usuarioAutenticado());
