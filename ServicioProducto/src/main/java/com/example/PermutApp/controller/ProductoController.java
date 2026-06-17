@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.PermutApp.model.dto.ProductoCategoriaDto;
 import com.example.PermutApp.model.dto.ProductoDto;
 import com.example.PermutApp.model.request.ActualizarProducto;
 import com.example.PermutApp.model.request.CrearProducto;
@@ -35,6 +36,11 @@ public class ProductoController {
     @GetMapping("")
     public List<ProductoDto> obtenerTodosProductos() {
         return productoService.obtenerTodos();
+    }
+
+    @GetMapping("/categorias")
+    public List<ProductoCategoriaDto> obtenerCategorias() {
+        return productoService.obtenerCategorias();
     }
 
     @GetMapping("/{idProducto}")

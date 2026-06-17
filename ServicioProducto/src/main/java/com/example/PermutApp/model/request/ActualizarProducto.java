@@ -11,6 +11,7 @@ public class ActualizarProducto {
     private String prod_nombre;
     @NotBlank
     private String prod_est;
+    private String prod_categoria;
     @NotNull
     @Min(0)
     private Integer prod_precio;

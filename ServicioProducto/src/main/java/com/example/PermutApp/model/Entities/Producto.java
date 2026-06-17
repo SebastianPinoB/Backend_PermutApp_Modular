@@ -20,6 +20,7 @@ public class Producto {
     private String prod_nombre;
     @Column(nullable = false)
     private String prod_est;
+    private String prod_categoria;
     @Column(nullable = false)
     private int prod_precio;
     @Column(nullable = false)
