@@ -18,9 +18,9 @@ public class Publicacion {
    @Id
    @GeneratedValue(strategy = GenerationType.IDENTITY)
    private int publ_id;
-   @Column(nullable = false)
+   @Column(nullable = false, length = 80)
    private String publ_titulo;
-   @Column(nullable = false)
+   @Column(nullable = false, length = 500)
    private String publ_descripcion;
    @Column(nullable = false)
    private Date publ_fech_creacion;

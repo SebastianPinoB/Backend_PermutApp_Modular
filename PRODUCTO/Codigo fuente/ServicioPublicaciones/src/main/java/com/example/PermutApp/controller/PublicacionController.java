@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PutMapping;
 
+import jakarta.validation.Valid;
+
 
 @RestController
 @RequestMapping("publicacion")
@@ -28,7 +30,7 @@ public class PublicacionController {
 
    @PostMapping("")
    public Publicacion crearPublicacion(
-         @RequestBody CrearPublicacion nueva,
+         @Valid @RequestBody CrearPublicacion nueva,
          @RequestHeader(value = "Authorization", required = false) String authorization) {
       return publicacionService.crearPublicacion(nueva, authorization);
    }
@@ -45,7 +47,7 @@ public class PublicacionController {
 
    @PutMapping("/{idPublicacion}")
    public Publicacion modificarPublicacion(@PathVariable Integer idPublicacion,
-         @RequestBody ActualizarPublicacion nueva) {
+         @Valid @RequestBody ActualizarPublicacion nueva) {
       return publicacionService.actualizarPublicacion(idPublicacion, nueva);
    }
 

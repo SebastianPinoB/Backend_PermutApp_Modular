@@ -49,7 +49,7 @@ public class ProductoController {
     }
 
     @PutMapping("/{idProducto}")
-    public ProductoDto modificarProducto(@PathVariable Integer idProducto, @RequestBody ActualizarProducto nuevo) {
+    public ProductoDto modificarProducto(@PathVariable Integer idProducto, @Valid @RequestBody ActualizarProducto nuevo) {
         return productoService.modificarProducto(idProducto, nuevo);
     }
 
