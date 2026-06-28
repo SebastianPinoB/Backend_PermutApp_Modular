@@ -216,7 +216,9 @@ public class ProductoService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Un producto puede tener maximo 5 fotos");
         }
 
-        return limpias;
+        return limpias.stream()
+            .map(ProductoImagenValidator::validarYNormalizar)
+            .toList();
     }
 
     private String limpiarCategoria(String valor) {

@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 public class ActualizarProducto {
     @NotBlank
-    @Size(max = 60, message = "El nombre puede tener hasta 60 caracteres")
+    @Size(max = 20, message = "El nombre puede tener hasta 20 caracteres")
     private String prod_nombre;
     @NotBlank
     @Size(max = 20, message = "El estado puede tener hasta 20 caracteres")
@@ -23,7 +23,7 @@ public class ActualizarProducto {
     private Integer prod_precio;
     @Size(max = 60, message = "La comuna puede tener hasta 60 caracteres")
     private String prod_ubicacion_comuna;
-    @Size(max = 120, message = "La referencia puede tener hasta 120 caracteres")
+    @Size(max = 50, message = "La referencia puede tener hasta 50 caracteres")
     private String prod_ubicacion_referencia;
     private Double prod_latitud_aprox;
     private Double prod_longitud_aprox;
