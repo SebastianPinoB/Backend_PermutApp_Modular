@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,4 +16,8 @@ public interface VerificacionIdentidadRepository extends JpaRepository<Verificac
 
    @Query(value = "select * from verificacion_identidad where ver_estado = :estado order by ver_fecha asc", nativeQuery = true)
    List<VerificacionIdentidad> findRevisionManual(@Param("estado") String estado);
+
+   @Modifying
+   @Query(value = "delete from verificacion_identidad where usu_id = :usuId", nativeQuery = true)
+   int eliminarPorUsuario(@Param("usuId") int usuId);
 }

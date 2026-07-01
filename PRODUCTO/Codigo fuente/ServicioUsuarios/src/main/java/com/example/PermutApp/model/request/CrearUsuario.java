@@ -15,13 +15,18 @@ public class CrearUsuario {
    @NotNull
    private Character usu_dvrun;
    @NotBlank
+   @Size(max = 15)
    private String usu_pri_nombre;
+   @Size(max = 15)
    private String usu_seg_nombre;
    @NotBlank
+   @Size(max = 15)
    private String usu_pri_apellido;
+   @Size(max = 15)
    private String usu_seg_apellido;
    @NotBlank
    @Email
+   @Size(max = 25)
    private String usu_email;
    @NotBlank
    @Size(min = 8)

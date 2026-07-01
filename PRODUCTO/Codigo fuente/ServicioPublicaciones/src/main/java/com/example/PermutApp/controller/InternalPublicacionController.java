@@ -3,6 +3,7 @@ package com.example.PermutApp.controller;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,9 +30,21 @@ public class InternalPublicacionController {
    public void finalizarPermuta(
          @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
          @Valid @RequestBody FinalizarPermutaRequest request) {
+      validarApiKey(apiKey);
+      publicacionService.finalizarPermuta(request.publicacionAutorId(), request.publicacionOfrecidaId());
+   }
+
+   @PostMapping("/internal/publicaciones/desactivar-usuario/{usuarioId}")
+   public void desactivarPublicacionesUsuario(
+         @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+         @PathVariable int usuarioId) {
+      validarApiKey(apiKey);
+      publicacionService.desactivarPorUsuario(usuarioId);
+   }
+
+   private void validarApiKey(String apiKey) {
       if (apiKey == null || !internalApiKey.equals(apiKey)) {
          throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Clave interna invalida");
       }
-      publicacionService.finalizarPermuta(request.publicacionAutorId(), request.publicacionOfrecidaId());
    }
 }

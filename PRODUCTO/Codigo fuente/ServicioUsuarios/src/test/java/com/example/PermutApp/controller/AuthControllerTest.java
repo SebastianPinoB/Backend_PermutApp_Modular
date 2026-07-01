@@ -98,6 +98,25 @@ class AuthControllerTest {
             .andExpect(content().string(not(containsString("usu_pass"))));
    }
 
+   @Test
+   void registerRechazaNombresYCorreoQueSuperanElMaximo() throws Exception {
+      mockMvc.perform(post("/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                  {
+                    "usu_numrun": 12345678,
+                    "usu_dvrun": "K",
+                    "usu_pri_nombre": "NombreConMasDe15",
+                    "usu_seg_nombre": "SegundoNombreLargo",
+                    "usu_pri_apellido": "ApellidoMuyExtenso",
+                    "usu_seg_apellido": "SegundoMuyExtenso",
+                    "usu_email": "correo.demasiado.largo@email.com",
+                    "usu_pass": "Password!1"
+                  }
+                  """))
+            .andExpect(status().isBadRequest());
+   }
+
    private AuthResponse authResponse() {
       return new AuthResponse(
             "jwt-token",

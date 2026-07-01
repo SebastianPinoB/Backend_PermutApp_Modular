@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -23,4 +24,8 @@ public interface PasswordRecoveryTokenRepository extends JpaRepository<PasswordR
          where t.usu_id = :usuarioId and t.prt_used = false
          """)
    List<PasswordRecoveryToken> findActiveByUsuarioId(@Param("usuarioId") int usuarioId);
+
+   @Modifying
+   @Query(value = "delete from password_recovery_token where usu_id = :usuarioId", nativeQuery = true)
+   int eliminarPorUsuario(@Param("usuarioId") int usuarioId);
 }

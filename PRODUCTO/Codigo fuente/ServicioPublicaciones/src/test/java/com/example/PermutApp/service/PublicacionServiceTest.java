@@ -36,6 +36,17 @@ class PublicacionServiceTest {
       verify(repository).saveAll(anyList());
    }
 
+   @Test
+   void desactivarPorUsuarioRetiraTodasSusPublicacionesActivas() {
+      when(repository.desactivarPorAutor(7)).thenReturn(3);
+      PublicacionService service = new PublicacionService(usuarioWebClient, repository);
+
+      int desactivadas = service.desactivarPorUsuario(7);
+
+      verify(repository).desactivarPorAutor(7);
+      org.junit.jupiter.api.Assertions.assertEquals(3, desactivadas);
+   }
+
    private Publicacion publicacion(int id, boolean activa) {
       Publicacion publicacion = new Publicacion();
       publicacion.setPubl_id(id);

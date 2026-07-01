@@ -1,9 +1,12 @@
 package com.example.PermutApp.service;
 
 import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,6 +16,7 @@ import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.request.ActualizarUsuario;
 import com.example.PermutApp.model.request.CrearUsuario;
 import com.example.PermutApp.repository.UsuarioRepository;
+import com.example.PermutApp.repository.PasswordRecoveryTokenRepository;
 import com.example.PermutApp.repository.VerificacionIdentidadRepository;
 
 @Service
@@ -20,18 +24,35 @@ public class UsuarioService {
 
    private final UsuarioRepository usuarioRepository;
    private final VerificacionIdentidadRepository verificacionIdentidadRepository;
+   private final PasswordRecoveryTokenRepository passwordRecoveryTokenRepository;
    private final PasswordEncoder passwordEncoder;
 
    public UsuarioService(
          UsuarioRepository usuarioRepository,
          VerificacionIdentidadRepository verificacionIdentidadRepository,
+         PasswordRecoveryTokenRepository passwordRecoveryTokenRepository,
          PasswordEncoder passwordEncoder) {
       this.usuarioRepository = usuarioRepository;
       this.verificacionIdentidadRepository = verificacionIdentidadRepository;
+      this.passwordRecoveryTokenRepository = passwordRecoveryTokenRepository;
       this.passwordEncoder = passwordEncoder;
    }
 
    public UsuarioDto convertirADto(Usuario usuario) {
+      if (!usuario.isUsu_activo()) {
+         return new UsuarioDto(
+               usuario.getUsu_id(),
+               0,
+               '0',
+               "Usuario",
+               null,
+               "eliminado",
+               null,
+               "usuario.eliminado@permutapp.invalid",
+               0,
+               false,
+               false);
+      }
       return new UsuarioDto(
             usuario.getUsu_id(),
             usuario.getUsu_numrun(),
@@ -83,15 +104,28 @@ public class UsuarioService {
       return convertirADto(usuarioRepository.save(nuevoUsuario));
    }
 
+   @Transactional
    public String eliminarUsuario(int idUsuario){
       Usuario usuario = usuarioRepository.findById(idUsuario).orElse(null);
       if(usuario == null){
          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
       }
 
+      verificacionIdentidadRepository.eliminarPorUsuario(idUsuario);
+      passwordRecoveryTokenRepository.eliminarPorUsuario(idUsuario);
+
+      usuario.setUsu_numrun(100_000_000 + idUsuario);
+      usuario.setUsu_dvrun('0');
+      usuario.setUsu_pri_nombre("Usuario");
+      usuario.setUsu_seg_nombre(null);
+      usuario.setUsu_pri_apellido("eliminado");
+      usuario.setUsu_seg_apellido(null);
+      usuario.setUsu_email("cuenta-eliminada-" + idUsuario + "@permutapp.invalid");
+      usuario.setUsu_pass(passwordEncoder.encode(UUID.randomUUID().toString()));
+      usuario.setUsu_prom_rep(0);
       usuario.setUsu_activo(false);
       usuarioRepository.save(usuario);
-      return "Usuario desactivado correctamente";
+      return "Cuenta eliminada correctamente";
    }
 
    public UsuarioDto actualizarUsuario(Integer idUsuario, ActualizarUsuario nuevo){

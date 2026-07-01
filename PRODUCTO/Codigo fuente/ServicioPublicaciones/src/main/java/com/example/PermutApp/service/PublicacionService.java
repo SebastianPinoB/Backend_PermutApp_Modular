@@ -73,6 +73,11 @@ public class PublicacionService {
    }
 
    @Transactional
+   public int desactivarPorUsuario(int usuarioId) {
+      return publicacionRepository.desactivarPorAutor(usuarioId);
+   }
+
+   @Transactional
    public void finalizarPermuta(int publicacionAutorId, int publicacionOfrecidaId) {
       if (publicacionAutorId == publicacionOfrecidaId) {
          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Las publicaciones deben ser distintas");

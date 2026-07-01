@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.PermutApp.model.dto.UsuarioDto;
 import com.example.PermutApp.model.request.ActualizarUsuario;
 import com.example.PermutApp.model.request.CrearUsuario;
+import com.example.PermutApp.service.PublicacionClient;
 import com.example.PermutApp.service.UsuarioService;
 
 import jakarta.validation.Valid;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class UsuarioController {
    @Autowired
    private UsuarioService usuarioService;
+   @Autowired
+   private PublicacionClient publicacionClient;
 
    @GetMapping("")
    public List<UsuarioDto> obtenerTodosUsuarios() {
@@ -55,6 +58,7 @@ public class UsuarioController {
       if (authentication == null || !usuario.usu_email().equalsIgnoreCase(authentication.getName())) {
          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes eliminar tu propia cuenta");
       }
+      publicacionClient.desactivarPorUsuario(id);
       return usuarioService.eliminarUsuario(id);
    }
 

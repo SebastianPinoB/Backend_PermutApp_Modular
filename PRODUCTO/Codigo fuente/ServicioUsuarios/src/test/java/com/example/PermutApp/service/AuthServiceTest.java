@@ -29,6 +29,7 @@ import com.example.PermutApp.model.auth.AuthResponse;
 import com.example.PermutApp.model.auth.LoginRequest;
 import com.example.PermutApp.model.auth.RegisterRequest;
 import com.example.PermutApp.repository.UsuarioRepository;
+import com.example.PermutApp.repository.PasswordRecoveryTokenRepository;
 import com.example.PermutApp.repository.VerificacionIdentidadRepository;
 import com.example.PermutApp.security.JwtService;
 
@@ -47,13 +48,20 @@ class AuthServiceTest {
    @Mock
    private VerificacionIdentidadRepository verificacionIdentidadRepository;
 
+   @Mock
+   private PasswordRecoveryTokenRepository passwordRecoveryTokenRepository;
+
    private PasswordEncoder passwordEncoder;
    private AuthService authService;
 
    @BeforeEach
    void setUp() {
       passwordEncoder = new BCryptPasswordEncoder();
-      UsuarioService usuarioService = new UsuarioService(usuarioRepository, verificacionIdentidadRepository, passwordEncoder);
+      UsuarioService usuarioService = new UsuarioService(
+            usuarioRepository,
+            verificacionIdentidadRepository,
+            passwordRecoveryTokenRepository,
+            passwordEncoder);
       authService = new AuthService(usuarioRepository, passwordEncoder, authenticationManager, jwtService, usuarioService);
    }
 
